@@ -12,7 +12,7 @@ public class RepairQueue extends JPanel {
     public String typeOfPanel = "Test";
     public JTable table;
     public RepairQueue() {
-
+        this("Test");
     }
     public RepairQueue(String typeOfPanel) {
         this.typeOfPanel = typeOfPanel;
@@ -32,6 +32,8 @@ public class RepairQueue extends JPanel {
                 RepairQueue.columnNames
             )
         );
+        this.setLayout(new BorderLayout());
+        this.add(new JScrollPane(this.table), BorderLayout.CENTER);
         
     }
 
