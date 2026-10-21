@@ -1,12 +1,12 @@
 package com.oop.project.model;
 
 public enum JobStatus {
-    RECEIVED("Đã nhận"),
-    DIAGNOSING("Đang chẩn đoán"),
-    WAITING_FOR_APPROVAL("Đang chờ phê duyệt"),
-    REPAIRING("Đang sửa chữa"),
-    READY("Sẵn sàng"),
-    CLOSED("Đã đóng");
+    RECEIVED("Received"),
+    DIAGNOSING("Diagnosing"),
+    WAITING_FOR_APPROVAL("Waiting for Approval"),
+    REPAIRING("Repairing"),
+    READY("Ready"),
+    CLOSED("Closed");
 
     private final String displayName;
 
