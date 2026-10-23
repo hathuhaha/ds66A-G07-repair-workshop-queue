@@ -3,11 +3,11 @@ package com.oop.project.model;
 import com.oop.project.exception.DomainException;
 
 public class Device {
-    private int id;
+    private Integer id;
     private String serialNumber;
     private String deviceType;
     private String model;
-    private int customerId;
+    private Integer customerId;
 
     private static String validateText(String value, String fieldName) throws DomainException {
         if (value == null || value.isBlank()) {
@@ -17,27 +17,28 @@ public class Device {
         return value.trim();
     }
 
-    private static int validateCustomerId(int customerId) throws DomainException {
-        if (customerId <= 0) {
+    private static Integer validateCustomerId(Integer customerId) throws DomainException {
+        if (customerId == null || customerId <= 0) {
             throw new DomainException("Customer ID must be greater than 0");
         }
 
         return customerId;
     }
 
-    public Device(int id, String serialNumber, String deviceType, String model, int customerId) throws DomainException {
+    public Device(Integer id, String serialNumber, String deviceType, String model, Integer customerId)
+            throws DomainException {
         this.id = id;
         this.serialNumber = validateText(serialNumber, "Device Serial Number");
         this.deviceType = validateText(deviceType, "Device Type");
-        this.model = validateText(model, "Device model");
+        this.model = validateText(model, "Device Model");
         this.customerId = validateCustomerId(customerId);
     }
 
-    public Device(String serialNumber, String deviceType, String model, int customerId) throws DomainException {
-        this(0, serialNumber, deviceType, model, customerId);
+    public Device(String serialNumber, String deviceType, String model, Integer customerId) throws DomainException {
+        this(null, serialNumber, deviceType, model, customerId);
     }
 
-    public int getId() {
+    public Integer getId() {
         return id;
     }
 
@@ -53,7 +54,7 @@ public class Device {
         return model;
     }
 
-    public int getCustomerId() {
+    public Integer getCustomerId() {
         return customerId;
     }
 }
