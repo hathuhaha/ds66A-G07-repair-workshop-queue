@@ -1,24 +1,28 @@
 package com.oop.project.model;
 
+import java.time.LocalDateTime;
+
 import com.oop.project.exception.DomainException;
 
 public class Customer {
-    private Integer id;
-    private String name;
+    private int id;
+    private String fullName;
     private String phone;
     private String email;
     private String address;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 
-    private static String validateName(String name) throws DomainException {
-        if (name == null || name.isBlank()) {
+    private static String validateName(String fullName) {
+        if (fullName == null || fullName.isBlank()) {
             throw new DomainException("Customer Name must not be empty");
         }
 
-        name = name.trim();
-        return name;
+        fullName = fullName.trim();
+        return fullName;
     }
 
-    private static String validatePhone(String phone) throws DomainException {
+    private static String validatePhone(String phone) {
         if (phone == null || phone.isBlank()) {
             throw new DomainException("Customer Phone must not be empty");
         }
@@ -44,24 +48,27 @@ public class Customer {
         return value.trim();
     }
 
-    public Customer(Integer id, String name, String phone, String email, String address) throws DomainException {
+    public Customer(int id, String fullName, String phone, String email, String address, LocalDateTime createdAt,
+            LocalDateTime updatedAt) {
         this.id = id;
-        this.name = validateName(name);
+        this.fullName = validateName(fullName);
         this.phone = validatePhone(phone);
         this.email = normalizeOptional(email);
         this.address = normalizeOptional(address);
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
     }
 
-    public Customer(String name, String phone, String email, String address) throws DomainException {
-        this(null, name, phone, email, address);
+    public Customer(String fullName, String phone, String email, String address) {
+        this(0, fullName, phone, email, address, null, null);
     }
 
-    public Integer getId() {
+    public int getId() {
         return id;
     }
 
-    public String getName() {
-        return name;
+    public String getFullName() {
+        return fullName;
     }
 
     public String getPhone() {
@@ -74,5 +81,17 @@ public class Customer {
 
     public String getAddress() {
         return address;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setId(int id) {
+        this.id = id;
     }
 }
