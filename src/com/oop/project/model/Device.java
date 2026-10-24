@@ -14,28 +14,42 @@ public class Device {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    private static String validateText(String value, String fieldName) {
-        if (value == null || value.isBlank()) {
-            throw new DomainException(fieldName + " must not be empty");
+    private static Customer validateCustomer(Customer customer) {
+        if (customer == null) {
+            throw new DomainException("Device must belong to a customer");
         }
 
+        return customer;
+    }
+
+    private static String validateDeviceType(String deviceType) {
+        if (deviceType == null || deviceType.isBlank()) {
+            throw new DomainException("Device Type must not be empty");
+        }
+        return deviceType.trim();
+    }
+
+    private static String normalizeOptional(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
         return value.trim();
     }
 
     public Device(int id, Customer customer, String deviceType, String brand, String model, String serialNumber,
             LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.id = id;
-        this.customer = customer;
-        this.deviceType = validateText(deviceType, "Device Type");
-        this.brand = validateText(brand, "Device Brand");
-        this.model = validateText(model, "Device Model");
-        this.serialNumber = validateText(serialNumber, "Device Serial Number");
+        this.customer = validateCustomer(customer);
+        this.deviceType = validateDeviceType(deviceType);
+        this.brand = normalizeOptional(brand);
+        this.model = normalizeOptional(model);
+        this.serialNumber = normalizeOptional(serialNumber);
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
 
-    public Device(String serialNumber, String deviceType, String model) {
-        this(0, serialNumber, deviceType, model);
+    public Device(Customer customer, String deviceType, String brand, String model, String serialNumber) {
+        this(0, customer, deviceType, brand, model, serialNumber, null, null);
     }
 
     public int getId() {
