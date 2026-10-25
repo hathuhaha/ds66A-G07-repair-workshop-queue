@@ -3,41 +3,106 @@ package com.oop.project.ui;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
 public class RepairQueue extends JPanel {
-    public static String[] columnNames = {"ID", "Device Name", "Symptoms", "Status", "Received At", "Customer Name", "Customer Phone"};
-    public List<Object[]> data;
+    public static String[] columnNames = { "ID", "Device Name", "Symptoms", "Status", "Received At", "Customer Name",
+            "Customer Phone" };
+    public List<Object[]> data, filteredData;
     public String typeOfPanel = "Test";
-    public JTable table;
+    public JTable table, filteredTable;
+    public JPanel filter;
+
     public RepairQueue() {
         this("Test");
     }
+
     public RepairQueue(String typeOfPanel) {
         this.typeOfPanel = typeOfPanel;
-        if(typeOfPanel.equals("Test")) {
-            this.data = new ArrayList<>();
-            this.data.add(new Object[]{1, "Laptop", "Not turning on", "In Progress", "2024-06-01 10:00", "John Doe", "123456789"});
-            this.data.add(new Object[]{2, "Smartphone", "Screen cracked", "Pending", "2024-06-02 11:30", "Jane Smith", "987654321"});
-            this.data.add(new Object[]{3, "Tablet", "Battery issue", "Completed", "2024-06-03 14:15", "Alice Johnson", "555555555"});
-            this.data.add(new Object[]{4, "Desktop", "Overheating", "In Progress", "2024-06-04 09:45", "Bob Brown", "444444444"});
+        if (typeOfPanel.equals("Test")) {
+            this.data = loadSampleData();
         } else {
             this.data = new ArrayList<>();
         }
+        this.filteredData = new ArrayList<>(this.data);
+        createList();
+        createFilter();
 
+    }
+
+    private void createList() {
         this.table = new JTable(
-            new DefaultTableModel(
-                this.data.toArray(new Object[0][]),
-                RepairQueue.columnNames
-            )
-        );
+                new DefaultTableModel(
+                        this.data.toArray(new Object[0][]),
+                        RepairQueue.columnNames));
         this.setLayout(new BorderLayout());
-        this.add(new JScrollPane(this.table), BorderLayout.CENTER);
-        
+        this.add(new JScrollPane(this.table), BorderLayout.WEST);
+    }
+
+    private static List<Object[]> loadSampleData() {
+        Path sampleDataPath = Path.of("src", "com", "oop", "project", "sample_data", "repair_queue.txt");
+        List<Object[]> sampleData = new ArrayList<>();
+        try {
+            List<String> lines = Files.readAllLines(sampleDataPath, StandardCharsets.UTF_8);
+            for (int i = 0; i < lines.size(); i++) {
+                String[] fields = lines.get(i).split("\t", -1);
+                if (fields.length != columnNames.length) {
+                    throw new IllegalStateException("Invalid repair queue sample data at line " + (i + 1)
+                            + ": expected " + columnNames.length + " tab-separated fields.");
+                }
+                try {
+                    sampleData.add(new Object[] {
+                            Integer.parseInt(fields[0]), fields[1], fields[2], fields[3], fields[4], fields[5],
+                            fields[6]
+                    });
+                } catch (NumberFormatException e) {
+                    throw new IllegalStateException("Invalid repair ID in sample data at line " + (i + 1) + ".", e);
+                }
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException("Could not read repair queue sample data from "
+                    + sampleDataPath.toAbsolutePath(), e);
+        }
+        return sampleData;
+    }
+
+    private void createFilter() {
+        this.filter = new JPanel();
+        this.filter.setLayout(new FlowLayout());
+        createFilteredTable();
+        this.filter.add(new JScrollPane(this.filteredTable));
+        this.add(this.filter, BorderLayout.EAST);
+    }
+
+    private DefaultTableModel filteredTableModel;
+
+    private void createFilteredTable() {
+        filteredTableModel = new DefaultTableModel(
+                filteredData.toArray(new Object[0][]),
+                columnNames);
+        filteredTable = new JTable(filteredTableModel);
+    }
+
+    private void updateFilteredTable(List<Object[]> rows) {
+        filteredTableModel.setRowCount(0); // Clear the displayed rows
+        for (Object[] row : rows) {
+            filteredTableModel.addRow(row);
+        }
     }
 
     public static void main(String[] args) {
-        
+        SwingUtilities.invokeLater(() -> {
+            JFrame frame = new JFrame("Repair Queue");
+            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            frame.setContentPane(new RepairQueue());
+            frame.pack();
+            frame.setLocationRelativeTo(null);
+            frame.setVisible(true);
+        });
     }
 }
