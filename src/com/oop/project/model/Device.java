@@ -1,60 +1,90 @@
 package com.oop.project.model;
 
+import java.time.LocalDateTime;
+
 import com.oop.project.exception.DomainException;
 
 public class Device {
-    private Integer id;
-    private String serialNumber;
+    private int id;
+    private Customer customer;
     private String deviceType;
+    private String brand;
     private String model;
-    private Integer customerId;
+    private String serialNumber;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 
-    private static String validateText(String value, String fieldName) throws DomainException {
-        if (value == null || value.isBlank()) {
-            throw new DomainException(fieldName + " must not be empty");
+    private static Customer validateCustomer(Customer customer) {
+        if (customer == null) {
+            throw new DomainException("Device must belong to a customer");
         }
 
+        return customer;
+    }
+
+    private static String validateDeviceType(String deviceType) {
+        if (deviceType == null || deviceType.isBlank()) {
+            throw new DomainException("Device Type must not be empty");
+        }
+        return deviceType.trim();
+    }
+
+    private static String normalizeOptional(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
         return value.trim();
     }
 
-    private static Integer validateCustomerId(Integer customerId) throws DomainException {
-        if (customerId == null || customerId <= 0) {
-            throw new DomainException("Customer ID must be greater than 0");
-        }
-
-        return customerId;
-    }
-
-    public Device(Integer id, String serialNumber, String deviceType, String model, Integer customerId)
-            throws DomainException {
+    public Device(int id, Customer customer, String deviceType, String brand, String model, String serialNumber,
+            LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.id = id;
-        this.serialNumber = validateText(serialNumber, "Device Serial Number");
-        this.deviceType = validateText(deviceType, "Device Type");
-        this.model = validateText(model, "Device Model");
-        this.customerId = validateCustomerId(customerId);
+        this.customer = validateCustomer(customer);
+        this.deviceType = validateDeviceType(deviceType);
+        this.brand = normalizeOptional(brand);
+        this.model = normalizeOptional(model);
+        this.serialNumber = normalizeOptional(serialNumber);
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
     }
 
-    public Device(String serialNumber, String deviceType, String model, Integer customerId) throws DomainException {
-        this(null, serialNumber, deviceType, model, customerId);
+    public Device(Customer customer, String deviceType, String brand, String model, String serialNumber) {
+        this(0, customer, deviceType, brand, model, serialNumber, null, null);
     }
 
-    public Integer getId() {
+    public int getId() {
         return id;
     }
 
-    public String getSerialNumber() {
-        return serialNumber;
+    public Customer getCustomer() {
+        return customer;
     }
 
     public String getDeviceType() {
         return deviceType;
     }
 
+    public String getBrand() {
+        return brand;
+    }
+
     public String getModel() {
         return model;
     }
 
-    public Integer getCustomerId() {
-        return customerId;
+    public String getSerialNumber() {
+        return serialNumber;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setId(int id) {
+        this.id = id;
     }
 }

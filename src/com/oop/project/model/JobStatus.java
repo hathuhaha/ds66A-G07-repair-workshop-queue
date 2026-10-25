@@ -1,5 +1,9 @@
 package com.oop.project.model;
 
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.Set;
+
 public enum JobStatus {
     RECEIVED("Received"),
     DIAGNOSING("Diagnosing"),
@@ -9,6 +13,9 @@ public enum JobStatus {
     CLOSED("Closed");
 
     private final String displayName;
+
+    public static final Set<JobStatus> TECHNICIAN_QUEUE = Collections
+            .unmodifiableSet(EnumSet.of(RECEIVED, DIAGNOSING, REPAIRING));
 
     JobStatus(String displayName) {
         this.displayName = displayName;
