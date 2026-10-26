@@ -80,16 +80,53 @@ public class Warranty extends JPanel {
 
         //Create Warranty Panel
         createWarranty = new JPanel();
-        createWarranty.setLayout(new BoxLayout(createWarranty, BoxLayout.Y_AXIS));
+        createWarranty.setLayout(new BorderLayout(0, 10));
 
 
         //List of Repair Job
+        JPanel filter = new JPanel();
+        filter.setLayout(new BoxLayout(filter, BoxLayout.Y_AXIS));
 
-        JPanel repairIDPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        JLabel lblRepairID = new JLabel("Repair ID:");
-        JComboBox<Integer> repairIDComboBox = new JComboBox<>(repairList.stream().map(obj -> (Integer) obj[0]).toArray(Integer[]::new));
-        repairIDPanel.add(lblRepairID);
-        repairIDPanel.add(repairIDComboBox);
+        //search generally
+        JPanel searchGeneral = new JPanel();
+        searchGeneral.setLayout(new FlowLayout(FlowLayout.LEFT));
+        JLabel searchGeneralLabel = new JLabel("Search:");
+        JTextField searchGeneralField = new JTextField(30);
+        searchGeneral.add(searchGeneralLabel);
+        searchGeneral.add(searchGeneralField);
+        filter.add(searchGeneral);
+
+        //search by customer
+        JPanel searchbyName = new JPanel();
+        searchbyName.setLayout(new FlowLayout(FlowLayout.LEFT));
+        JLabel searchbyNameLabel = new JLabel("Customer Name:");
+        JTextField searchbyNameField = new JTextField(30);
+        searchbyName.add(searchbyNameLabel);
+        searchbyName.add(searchbyNameField);
+        filter.add(searchbyName);
+
+        //search by device
+        JPanel searchbyDevice = new JPanel();
+        searchbyDevice.setLayout(new FlowLayout(FlowLayout.LEFT));
+        JLabel searchbyDeviceLabel = new JLabel("Device Name:");
+        JTextField searchbyDeviceField = new JTextField(30);
+        searchbyDevice.add(searchbyDeviceLabel);
+        searchbyDevice.add(searchbyDeviceField);
+        filter.add(searchbyDevice);
+
+        //create table
+        DefaultTableModel model = new DefaultTableModel(repairList.toArray(new Object[0][]), columnNames) {
+            @Override 
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
+        JTable filteredTable = new JTable(model);
+        JScrollPane scrollPane = new JScrollPane(filteredTable);
+        createWarranty.add(filter, BorderLayout.NORTH);
+        createWarranty.add(scrollPane, BorderLayout.CENTER);
+
+        this.add(createWarranty, BorderLayout.WEST);
 
     }
 

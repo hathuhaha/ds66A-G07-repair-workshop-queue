@@ -1,8 +1,2 @@
 7	Tablet	Charging port is loose	Pending	2024-06-07 15:40	Ethan Miller	111111111
 8	Desktop	No display output	In Progress	2024-06-08 10:25	Fiona Moore	666666666
-9	Smartwatch	Touchscreen is unresponsive	Completed	2024-06-09 11:55	George Taylor	777777777
-10	Laptop	Fan making loud noise	Pending	2024-06-10 09:15	Hannah Anderson	888888888
-11	Smartphone	Camera app keeps crashing	In Progress	2024-06-11 14:30	Isaac Thomas	999999999
-12	Printer	Paper jam	Completed	2024-06-12 16:05	Julia Jackson	121212121
-13	Tablet	Wi-Fi connection drops	Pending	2024-06-13 08:50	Kevin White	232323232
-14	Desktop	Random system shutdowns	In Progress	2024-06-14 12:35	Laura Harris	343434343
