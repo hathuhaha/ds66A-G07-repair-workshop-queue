@@ -10,6 +10,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Flow;
+import com.oop.project.ui.theme.AppTheme;
 
 public class RepairQueue extends JPanel {
     private static String[] columnNames = { "ID", "Device Name", "Symptoms", "Status", "Received At", "Customer Name",
@@ -24,6 +25,7 @@ public class RepairQueue extends JPanel {
     }
 
     public RepairQueue(String typeOfPanel) {
+        AppTheme.setup();
         this.typeOfPanel = typeOfPanel;
         if (typeOfPanel.equals("Test")) {
             this.data = loadSampleData();
