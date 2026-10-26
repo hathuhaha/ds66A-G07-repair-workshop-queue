@@ -16,15 +16,22 @@ public class Warranty extends JPanel {
     private JTable table;
     private DefaultTableModel tableModel;
 
+    public Warranty() {
+        this("Test");
     }
 
     public Warranty(String typeOfPanel) {
         this.typeOfPanel = typeOfPanel;
         if (typeOfPanel.equals("Test")) {
-            this.typeOfPanel = "Test";
+            
         } else {
-            this.typeOfPanel = "Warranty";
+            
         }
+
+        JPanel dashboard = new JPanel();
+        dashboard.setLayout(new FlowLayout(FlowLayout.CENTER));
+        int wCount = tableModel.getRowCount();
+
     }
 
     public static void main(String[] args) {
