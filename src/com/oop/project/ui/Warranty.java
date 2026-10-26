@@ -18,7 +18,7 @@ public class Warranty extends JPanel {
     private static String[] columnNames = { "Warranty ID", "Repair ID", "Device", "Customer", "Start Date", "End Date" };
     private JTable table;
     private DefaultTableModel tableModel;
-    private JPanel createWarranty;
+    private JPanel createWarranty, warrantyForm;
     private List<Object[]> repairList; // RepairID, Device Name, Customer Name, Received Date, Fix Date
 
     public Warranty() {
@@ -80,8 +80,8 @@ public class Warranty extends JPanel {
 
 
         //Create Warranty Panel
-        createWarranty = new JPanel();
-        createWarranty.setLayout(new BorderLayout(0, 10));
+        this.createWarranty = new JPanel();
+        this.createWarranty.setLayout(new BorderLayout(0, 10));
 
 
         //List of Repair Job
@@ -115,7 +115,16 @@ public class Warranty extends JPanel {
         searchbyDevice.add(searchbyDeviceField);
         filter.add(searchbyDevice);
 
-        //create table
+
+        //search button
+        JPanel filterButton = new JPanel();
+        filterButton.setLayout(new FlowLayout(FlowLayout.LEFT));
+        JButton filterIcon = new JButton("🔎");
+        filterButton.add(filterIcon);
+        filter.add(filterButton);
+
+
+        //create filtered table
         String warrantyColumns[] = {"Repair ID", "Device Name", "Customer Name", "Received Date", "Completed At"};
         DefaultTableModel model = new DefaultTableModel(repairList.toArray(new Object[0][]), warrantyColumns) {
             @Override 
@@ -124,16 +133,77 @@ public class Warranty extends JPanel {
             }
         };
         JTable filteredTable = new JTable(model);
-        JScrollPane scrollPane = new JScrollPane(filteredTable);
-        createWarranty.add(filter, BorderLayout.NORTH);
-        createWarranty.add(scrollPane, BorderLayout.CENTER);
-        createWarranty.setPreferredSize(new Dimension(800, 500));
+        int screenHeight = Toolkit.getDefaultToolkit().getScreenSize().height;
 
-        this.add(createWarranty, BorderLayout.WEST);
+        JScrollPane scrollPane = new JScrollPane(filteredTable);
+        scrollPane.setPreferredSize(
+            new Dimension(650, screenHeight / 4)
+        );
+        this.createWarranty.add(filter, BorderLayout.NORTH);
+        this.createWarranty.add(scrollPane, BorderLayout.CENTER);
+
+        createWarrantyForm();
+        this.createWarranty.setPreferredSize(new Dimension(700, 500));
+        this.add(this.createWarranty, BorderLayout.WEST);
 
     }
-    void createWarrantyWindow() {
+    void createWarrantyForm() {
+        //create warranty form
+        Object[] chosenSample = {
+            102, 
+            "Apple Iphone 13", 
+            "Ha Thu Ha", 
+            "18-7-2026", 
+            "20-7-2026"
+        };
+        this.warrantyForm = new JPanel();
+        this.warrantyForm.setLayout(new BoxLayout(this.warrantyForm, BoxLayout.Y_AXIS));
+            //Repair ID
+        JPanel repairID = new JPanel();
+        repairID.setLayout(new FlowLayout(FlowLayout.LEFT));
+        JLabel repairIDLabel = new JLabel("Repair ID: ");
+        JTextField repairIDContent = new JTextField(String.valueOf(chosenSample[0]));
+        repairIDContent.setEditable(false);
+        // repairIDContent.setEnabled(false);
+        repairID.add(repairIDLabel);
+        repairID.add(repairIDContent);
+        warrantyForm.add(repairID);
+            //Device Name
+        JPanel repairDeviceName = new JPanel();
+        repairDeviceName.setLayout(new FlowLayout(FlowLayout.LEFT));
+        JLabel repairDeviceNameLabel = new JLabel("Device Name: ");
+        JTextField repairDeviceNameContent = new JTextField(String.valueOf(chosenSample[1]));
+        repairDeviceNameContent.setEditable(false);
+        // repairDeviceNameContent.setEnabled(false);
+        repairDeviceName.add(repairDeviceNameLabel);
+        repairDeviceName.add(repairDeviceNameContent);
+        warrantyForm.add(repairDeviceName);
+            //Customer Name
+            //Received Date
+            //Complete At
+        //add to createWarrantt
+        // warrantyForm.setPreferredSize(new Dimension(700, 250));
 
+        repairID.setAlignmentX(Component.LEFT_ALIGNMENT);
+        repairDeviceName.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        repairID.setMaximumSize(repairID.getPreferredSize());
+        repairDeviceName.setMaximumSize(repairDeviceName.getPreferredSize());
+
+        createWarranty.add(warrantyForm, BorderLayout.SOUTH);
+    }
+    private void deleteWarrantyForm() {
+        try {
+            createWarranty.remove(this.warrantyForm);
+        }
+        catch(Exception e) {
+            JOptionPane.showMessageDialog(
+                this, 
+                "Warranty Form does not exist in createWarranty anymore", 
+                "Error",
+                JOptionPane.ERROR_MESSAGE
+            );
+        }   
     }
 
     public static void main(String[] args) {

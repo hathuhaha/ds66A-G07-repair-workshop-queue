@@ -7,8 +7,7 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
-public class ButtonEditor extends DefaultCellEditor
-        implements ActionListener {
+public class ButtonEditor extends DefaultCellEditor implements ActionListener {
 
     private final JTable table;
     private final JButton button;
