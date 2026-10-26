@@ -158,7 +158,7 @@ public class Warranty extends JPanel {
         };
         this.warrantyForm = new JPanel();
         this.warrantyForm.setLayout(new BoxLayout(this.warrantyForm, BoxLayout.Y_AXIS));
-            //Repair ID
+            //REPAIR ID
         JPanel repairID = new JPanel();
         repairID.setLayout(new FlowLayout(FlowLayout.LEFT));
         JLabel repairIDLabel = new JLabel("Repair ID: ");
@@ -179,17 +179,26 @@ public class Warranty extends JPanel {
         repairDeviceName.add(repairDeviceNameContent);
         warrantyForm.add(repairDeviceName);
             //Customer Name
+        JPanel repairCustomerName = new JPanel();
+        repairCustomerName.setLayout(new FlowLayout(FlowLayout.LEFT));
+        JLabel repairCustomerNameLabel = new JLabel("Customer Name: ");
+        JTextField repairCustomerNameContent = new JTextField(String.valueOf(chosenSample[2]));
+        repairCustomerNameContent.setEditable(false);
+        repairCustomerName.add(repairCustomerNameLabel);
+        repairCustomerName.add(repairCustomerNameContent);
+        warrantyForm.add(repairCustomerName);
             //Received Date
             //Complete At
-        //add to createWarrantt
-        // warrantyForm.setPreferredSize(new Dimension(700, 250));
+        warrantyForm.setPreferredSize(new Dimension(700, 400));
 
         repairID.setAlignmentX(Component.LEFT_ALIGNMENT);
         repairDeviceName.setAlignmentX(Component.LEFT_ALIGNMENT);
+        repairCustomerName.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         repairID.setMaximumSize(repairID.getPreferredSize());
         repairDeviceName.setMaximumSize(repairDeviceName.getPreferredSize());
-
+        repairCustomerName.setMaximumSize(repairCustomerName.getPreferredSize());
+        //add to create warranty
         createWarranty.add(warrantyForm, BorderLayout.SOUTH);
     }
     private void deleteWarrantyForm() {
