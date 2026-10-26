@@ -25,6 +25,7 @@ public class Warranty extends JPanel {
         this("Test");
     }
 
+
     public Warranty(String typeOfPanel) {
         AppTheme.setup();
         this.typeOfPanel = typeOfPanel;
@@ -115,7 +116,8 @@ public class Warranty extends JPanel {
         filter.add(searchbyDevice);
 
         //create table
-        DefaultTableModel model = new DefaultTableModel(repairList.toArray(new Object[0][]), columnNames) {
+        String warrantyColumns[] = {"Repair ID", "Device Name", "Customer Name", "Received Date", "Completed At"};
+        DefaultTableModel model = new DefaultTableModel(repairList.toArray(new Object[0][]), warrantyColumns) {
             @Override 
             public boolean isCellEditable(int row, int column) {
                 return false;
@@ -125,8 +127,12 @@ public class Warranty extends JPanel {
         JScrollPane scrollPane = new JScrollPane(filteredTable);
         createWarranty.add(filter, BorderLayout.NORTH);
         createWarranty.add(scrollPane, BorderLayout.CENTER);
+        createWarranty.setPreferredSize(new Dimension(800, 500));
 
         this.add(createWarranty, BorderLayout.WEST);
+
+    }
+    void createWarrantyWindow() {
 
     }
 
