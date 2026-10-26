@@ -12,12 +12,12 @@ import java.util.List;
 import java.util.concurrent.Flow;
 
 public class RepairQueue extends JPanel {
-    public static String[] columnNames = { "ID", "Device Name", "Symptoms", "Status", "Received At", "Customer Name",
+    private static String[] columnNames = { "ID", "Device Name", "Symptoms", "Status", "Received At", "Customer Name",
             "Customer Phone" };
-    public List<Object[]> data, filteredData;
-    public String typeOfPanel = "Test";
-    public JTable table, filteredTable;
-    public JPanel filter;
+    private List<Object[]> data, filteredData;
+    private String typeOfPanel = "Test";
+    private JTable table, filteredTable;
+    private JPanel filter;
 
     public RepairQueue() {
         this("Test");
@@ -153,6 +153,17 @@ public class RepairQueue extends JPanel {
         searchSymptoms.add(searchSymptomsLabel);
         searchSymptoms.add(searchSymptomsField);
         filterPanel.add(searchSymptoms);
+
+        // create sort by date mode
+
+        String sortOption[] = { "Newest to Oldest", "Oldest to Newest" };
+        JComboBox<String> sortComboBox = new JComboBox<>(sortOption);
+        JPanel sortByDate = new JPanel();
+        sortByDate.setLayout(new FlowLayout(FlowLayout.LEFT));
+        JLabel sortByDateLabel = new JLabel("Displaying Order");
+        sortByDate.add(sortByDateLabel);
+        sortByDate.add(sortComboBox);
+        filterPanel.add(sortByDate);
 
         // create search button and add to filterPanel
         JPanel searchButtonPanel = new JPanel();
