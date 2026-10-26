@@ -66,6 +66,7 @@ public class ButtonEditor extends DefaultCellEditor implements ActionListener {
     public void actionPerformed(ActionEvent e) {
         if (clicked) {
             int selectedRepairId = repairId;
+            
 
             // Kết thúc chế độ chỉnh sửa trước khi xử lý.
             fireEditingStopped();

@@ -5,6 +5,6 @@
 - Class: OOP Java – K66
 
 ## Members
-- Dương Minh Anh – Databases
-- Hà Thu Hà – Backend
-- Đinh Vân Anh – GUI
+- Dương Minh Anh – 11247125
+- Hà Thu Hà – 11248476
+- Đinh Vân Anh – 11247123

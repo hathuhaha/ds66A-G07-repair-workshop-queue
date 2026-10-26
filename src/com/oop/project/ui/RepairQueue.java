@@ -13,8 +13,7 @@ import java.util.concurrent.Flow;
 import com.oop.project.ui.theme.AppTheme;
 
 public class RepairQueue extends JPanel {
-    private static String[] columnNames = { "ID", "Device Name", "Symptoms", "Status", "Received At", "Customer Name",
-            "Customer Phone" };
+    private static String[] columnNames = { "ID", "Device Name", "Symptoms", "Status", "Received At", "Customer Name", "Customer Phone" };
     private List<Object[]> data, filteredData;
     private String typeOfPanel = "Test";
     private JTable table, filteredTable;

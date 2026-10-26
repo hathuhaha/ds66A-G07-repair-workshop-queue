@@ -189,15 +189,30 @@ public class Warranty extends JPanel {
         warrantyForm.add(repairCustomerName);
             //Received Date
             //Complete At
+            //Create Button
+        JButton createButton = new JButton("Create Warranty");
+        createButton.addActionListener(e -> {
+            deleteWarrantyForm();
+            createWarranty.revalidate();
+            createWarranty.repaint();
+            JOptionPane.showMessageDialog(
+                this, 
+                "Created New Warranty Successfully!\n"
+            );
+        });
+        warrantyForm.add(createButton);
+
         warrantyForm.setPreferredSize(new Dimension(700, 400));
 
         repairID.setAlignmentX(Component.LEFT_ALIGNMENT);
         repairDeviceName.setAlignmentX(Component.LEFT_ALIGNMENT);
         repairCustomerName.setAlignmentX(Component.LEFT_ALIGNMENT);
+        createButton.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         repairID.setMaximumSize(repairID.getPreferredSize());
         repairDeviceName.setMaximumSize(repairDeviceName.getPreferredSize());
         repairCustomerName.setMaximumSize(repairCustomerName.getPreferredSize());
+        createButton.setMaximumSize(repairCustomerName.getPreferredSize());
         //add to create warranty
         createWarranty.add(warrantyForm, BorderLayout.SOUTH);
     }
