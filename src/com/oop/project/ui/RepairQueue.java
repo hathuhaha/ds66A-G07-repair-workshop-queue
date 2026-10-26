@@ -9,6 +9,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Flow;
 
 public class RepairQueue extends JPanel {
     public static String[] columnNames = { "ID", "Device Name", "Symptoms", "Status", "Received At", "Customer Name",
@@ -26,10 +27,12 @@ public class RepairQueue extends JPanel {
         this.typeOfPanel = typeOfPanel;
         if (typeOfPanel.equals("Test")) {
             this.data = loadSampleData();
+            this.filteredData = loadSampleFilteredData();
+
         } else {
             this.data = new ArrayList<>();
+            this.filteredData = new ArrayList<>();
         }
-        this.filteredData = loadSampleFilteredData();
         createList();
         createFilter();
 
@@ -106,13 +109,67 @@ public class RepairQueue extends JPanel {
 
     private void createFilter() {
         this.filter = new JPanel();
-        this.filter.setLayout(new BorderLayout());
+        this.filter.setLayout(new BoxLayout(this.filter, BoxLayout.Y_AXIS));
+        this.filter.setBorder(BorderFactory.createTitledBorder("🔎"));
+
+        JPanel filterPanel = new JPanel();
+        filterPanel.setLayout(new BoxLayout(filterPanel, BoxLayout.Y_AXIS));
+
+        // create search status and add to filterPanel
+        String statusOption[] = { "All", "Pending", "In Progress", "Completed" };
+        JComboBox<String> statusComboBox = new JComboBox<>(statusOption);
+        statusComboBox.setSelectedIndex(0);
+
+        JPanel searchStatus = new JPanel();
+        searchStatus.setLayout(new FlowLayout(FlowLayout.LEFT));
+        JLabel searchStatusLabel = new JLabel("Status:");
+        searchStatus.add(searchStatusLabel);
+        searchStatus.add(statusComboBox);
+        filterPanel.add(searchStatus);
+
+        // create search device and add to filterPanel
+        JPanel searchDevice = new JPanel();
+        searchDevice.setLayout(new FlowLayout(FlowLayout.LEFT));
+        JLabel searchDeviceLabel = new JLabel("Device:");
+        JTextField searchDeviceField = new JTextField(30);
+        searchDevice.add(searchDeviceLabel);
+        searchDevice.add(searchDeviceField);
+        filterPanel.add(searchDevice);
+
+        // create search customer and add to filterPanel
+        JPanel searchCustomer = new JPanel();
+        searchCustomer.setLayout(new FlowLayout(FlowLayout.LEFT));
+        JLabel searchCustomerLabel = new JLabel("Customer:");
+        JTextField searchCustomerField = new JTextField(30);
+        searchCustomer.add(searchCustomerLabel);
+        searchCustomer.add(searchCustomerField);
+        filterPanel.add(searchCustomer);
+
+        // create search symptoms and add to filterPanel
+        JPanel searchSymptoms = new JPanel();
+        searchSymptoms.setLayout(new FlowLayout(FlowLayout.LEFT));
+        JLabel searchSymptomsLabel = new JLabel("Symptoms:");
+        JTextField searchSymptomsField = new JTextField(30);
+        searchSymptoms.add(searchSymptomsLabel);
+        searchSymptoms.add(searchSymptomsField);
+        filterPanel.add(searchSymptoms);
+
+        // create search button and add to filterPanel
+        JPanel searchButtonPanel = new JPanel();
+        searchButtonPanel.setLayout(new FlowLayout(FlowLayout.LEFT));
+        JButton searchButton = new JButton("🔎︎");
+        searchButtonPanel.add(searchButton);
+        filterPanel.add(searchButtonPanel);
+
+        // create FilterTable() and add to JPanel Filter
         createFilteredTable();
         this.filteredTable.setPreferredScrollableViewportSize(new Dimension(600, 350));
-        JScrollPane scrollPane = new JScrollPane(this.filteredTable);
-        scrollPane.setBorder(BorderFactory.createTitledBorder("Filtered results"));
-        this.filter.add(scrollPane, BorderLayout.CENTER);
+        JScrollPane filteredScrollPane = new JScrollPane(this.filteredTable);
+
+        this.filter.add(filterPanel);
+        this.filter.add(filteredScrollPane);
         this.add(this.filter);
+
     }
 
     private DefaultTableModel filteredTableModel;
