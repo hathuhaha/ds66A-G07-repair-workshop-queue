@@ -29,19 +29,20 @@ public class RepairQueue extends JPanel {
         } else {
             this.data = new ArrayList<>();
         }
-        this.filteredData = new ArrayList<>(this.data);
+        this.filteredData = loadSampleFilteredData();
         createList();
         createFilter();
 
     }
 
     private void createList() {
-        this.table = new JTable(
-                new DefaultTableModel(
-                        this.data.toArray(new Object[0][]),
-                        RepairQueue.columnNames));
-        this.setLayout(new BorderLayout());
-        this.add(new JScrollPane(this.table), BorderLayout.WEST);
+        this.table = new JTable(createReadOnlyTableModel(this.data));
+        this.table.setPreferredScrollableViewportSize(new Dimension(600, 350));
+        JScrollPane scrollPane = new JScrollPane(this.table);
+        scrollPane.setBorder(BorderFactory.createTitledBorder("All repair requests"));
+        this.setLayout(new GridLayout(1, 2, 12, 0));
+        this.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
+        this.add(scrollPane);
     }
 
     private static List<Object[]> loadSampleData() {
@@ -71,21 +72,63 @@ public class RepairQueue extends JPanel {
         return sampleData;
     }
 
+    private static List<Object[]> loadSampleFilteredData() {
+        Path sampleDataPath = Path.of(
+                "src", "com", "oop", "project", "sample_data", "repair_queue_filter.txt");
+        List<Object[]> sampleData = new ArrayList<>();
+
+        try {
+            List<String> lines = Files.readAllLines(sampleDataPath, StandardCharsets.UTF_8);
+            for (int i = 0; i < lines.size(); i++) {
+                String[] fields = lines.get(i).split("\t", -1);
+                if (fields.length != columnNames.length) {
+                    throw new IllegalStateException("Invalid filtered repair queue sample data at line " + (i + 1)
+                            + ": expected " + columnNames.length + " tab-separated fields.");
+                }
+
+                try {
+                    sampleData.add(new Object[] {
+                            Integer.parseInt(fields[0]), fields[1], fields[2], fields[3],
+                            fields[4], fields[5], fields[6]
+                    });
+                } catch (NumberFormatException e) {
+                    throw new IllegalStateException(
+                            "Invalid repair ID in filtered sample data at line " + (i + 1) + ".", e);
+                }
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException("Could not read filtered repair queue sample data from "
+                    + sampleDataPath.toAbsolutePath(), e);
+        }
+
+        return sampleData;
+    }
+
     private void createFilter() {
         this.filter = new JPanel();
-        this.filter.setLayout(new FlowLayout());
+        this.filter.setLayout(new BorderLayout());
         createFilteredTable();
-        this.filter.add(new JScrollPane(this.filteredTable));
-        this.add(this.filter, BorderLayout.EAST);
+        this.filteredTable.setPreferredScrollableViewportSize(new Dimension(600, 350));
+        JScrollPane scrollPane = new JScrollPane(this.filteredTable);
+        scrollPane.setBorder(BorderFactory.createTitledBorder("Filtered results"));
+        this.filter.add(scrollPane, BorderLayout.CENTER);
+        this.add(this.filter);
     }
 
     private DefaultTableModel filteredTableModel;
 
     private void createFilteredTable() {
-        filteredTableModel = new DefaultTableModel(
-                filteredData.toArray(new Object[0][]),
-                columnNames);
+        filteredTableModel = createReadOnlyTableModel(filteredData);
         filteredTable = new JTable(filteredTableModel);
+    }
+
+    private static DefaultTableModel createReadOnlyTableModel(List<Object[]> rows) {
+        return new DefaultTableModel(rows.toArray(new Object[0][]), columnNames) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
     }
 
     private void updateFilteredTable(List<Object[]> rows) {
