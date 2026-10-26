@@ -117,6 +117,15 @@ public class RepairQueue extends JPanel {
         JPanel filterPanel = new JPanel();
         filterPanel.setLayout(new BoxLayout(filterPanel, BoxLayout.Y_AXIS));
 
+        //create general search and add to filterPanel
+        JPanel searchGeneral = new JPanel();
+        searchGeneral.setLayout(new FlowLayout(FlowLayout.LEFT));
+        JLabel searchGeneralLabel = new JLabel("Search:");
+        JTextField searchGeneralField = new JTextField(30);
+        searchGeneral.add(searchGeneralLabel);
+        searchGeneral.add(searchGeneralField);
+        filterPanel.add(searchGeneral);
+
         // create search status and add to filterPanel
         String statusOption[] = { "All", "Pending", "In Progress", "Completed" };
         JComboBox<String> statusComboBox = new JComboBox<>(statusOption);
