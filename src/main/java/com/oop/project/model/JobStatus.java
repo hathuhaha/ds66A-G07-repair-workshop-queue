@@ -35,4 +35,5 @@ public enum JobStatus {
             case CLOSED -> false;
         };
     }
+
 }

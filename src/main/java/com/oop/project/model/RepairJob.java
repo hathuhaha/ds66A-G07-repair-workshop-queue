@@ -122,4 +122,12 @@ public class RepairJob {
     public void setClosedAt(LocalDateTime closedAt) {
         this.closedAt = closedAt;
     }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
+    }
 }
