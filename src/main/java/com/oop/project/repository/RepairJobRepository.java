@@ -5,6 +5,7 @@ import java.util.List;
 
 import com.oop.project.model.JobStatus;
 import com.oop.project.model.RepairJob;
+import com.oop.project.model.StatusHistory;
 
 public interface RepairJobRepository extends GenericRepository<RepairJob, Integer> {
 
@@ -25,4 +26,23 @@ public interface RepairJobRepository extends GenericRepository<RepairJob, Intege
      * Luôn bỏ qua CLOSED; tập rỗng hoặc null trả về danh sách rỗng.
      */
     List<RepairJob> findQueue(Collection<JobStatus> statuses);
+
+    /**
+     * Lưu đơn mới và ghi dòng lịch sử đầu tiên (oldStatus = null, newStatus =
+     * RECEIVED)
+     * trong MỘT transaction. Dùng cho createJob.
+     * Trả về đơn đã có id, createdAt, updatedAt. Đơn mới phải có status null hoặc
+     * RECEIVED.
+     */
+    RepairJob saveWithInitialHistory(RepairJob job, String note);
+
+    /**
+     * Cập nhật status, closedAt, updatedAt của đơn rồi ghi dòng lịch sử trong MỘT
+     * transaction.
+     * Dùng cho updateJobStatusWithHistory. Các field khác của đơn không bị ghi.
+     * history.newStatus phải khớp job.status; history.jobId bỏ trống (0) thì tự
+     * gán.
+     * Đơn CLOSED phải có closedAt, đơn chưa CLOSED phải để closedAt = null.
+     */
+    void updateWithHistory(RepairJob job, StatusHistory history);
 }

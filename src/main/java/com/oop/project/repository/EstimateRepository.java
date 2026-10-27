@@ -2,6 +2,8 @@ package com.oop.project.repository;
 
 import com.oop.project.model.Estimate;
 import com.oop.project.model.EstimateStatus;
+import com.oop.project.model.RepairJob;
+import com.oop.project.model.StatusHistory;
 
 import java.util.List;
 import java.util.Optional;
@@ -26,4 +28,16 @@ public interface EstimateRepository {
     Optional<Estimate> findLatestByJobId(int jobId);
 
     void updateStatus(int estimateId, EstimateStatus status);
+
+    /**
+     * Đổi trạng thái báo giá, cập nhật đơn (status, closedAt, updatedAt) và ghi
+     * dòng lịch sử
+     * trong MỘT transaction. Dùng cho:
+     * - approveEstimate: APPROVED, đơn chuyển sang REPAIRING.
+     * - rejectEstimate: REJECTED, đơn chuyển sang CLOSED (kèm closedAt).
+     * Báo giá phải thuộc đơn được truyền vào, nếu không ném
+     * EntityNotFoundException.
+     */
+    void updateEstimateStatusAndJob(int estimateId, EstimateStatus status,
+            RepairJob job, StatusHistory history);
 }

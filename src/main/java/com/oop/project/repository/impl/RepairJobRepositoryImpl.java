@@ -3,6 +3,7 @@ package com.oop.project.repository.impl;
 import com.oop.project.exception.DataAccessException;
 import com.oop.project.model.JobStatus;
 import com.oop.project.model.RepairJob;
+import com.oop.project.model.StatusHistory;
 import com.oop.project.repository.RepairJobRepository;
 import com.oop.project.repository.mapper.CustomerMapper;
 import com.oop.project.repository.mapper.DeviceMapper;
@@ -10,8 +11,6 @@ import com.oop.project.repository.mapper.RepairJobMapper;
 import com.oop.project.repository.mapper.RowMapper;
 
 import javax.sql.DataSource;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
@@ -33,10 +32,6 @@ public class RepairJobRepositoryImpl extends AbstractJdbcRepository implements R
     /** Thứ tự hàng đợi (contract 5.1): hạn chót, rồi ngày tiếp nhận, rồi id. */
     private static final String QUEUE_ORDER = " ORDER BY (j.created_at + j.desired_days * INTERVAL '1 day') ASC,"
             + " j.created_at ASC, j.id ASC";
-
-    private static final String INSERT = "INSERT INTO repair_jobs (device_id, issue_description, status, desired_days, "
-            + "estimated_ready_at, closed_at) VALUES (?, ?, ?, ?, ?, ?) "
-            + "RETURNING id, created_at, updated_at";
 
     private static final String UPDATE = "UPDATE repair_jobs SET device_id = ?, issue_description = ?, status = ?, "
             + "desired_days = ?, estimated_ready_at = ?, closed_at = ?, "
@@ -68,8 +63,8 @@ public class RepairJobRepositoryImpl extends AbstractJdbcRepository implements R
         if (job.getStatus() == null) {
             job.setStatus(JobStatus.RECEIVED);
         }
-        return queryOne("Thêm đơn sửa chữa", INSERT,
-                ps -> bind(ps, job),
+        return queryOne("Thêm đơn sửa chữa", JobWrites.INSERT_JOB,
+                ps -> JobWrites.bind(ps, job),
                 rs -> {
                     job.setId(rs.getInt("id"));
                     job.setCreatedAt(RowMapper.toLocalDateTime(rs, "created_at"));
@@ -87,7 +82,7 @@ public class RepairJobRepositoryImpl extends AbstractJdbcRepository implements R
             throw new IllegalArgumentException("Đơn sửa chữa phải có trạng thái");
         }
         int rows = executeUpdate("Cập nhật đơn sửa chữa", UPDATE, ps -> {
-            bind(ps, job);
+            JobWrites.bind(ps, job);
             ps.setInt(7, job.getId());
         });
         requireFound(rows, "đơn sửa chữa", job.getId());
@@ -150,14 +145,39 @@ public class RepairJobRepositoryImpl extends AbstractJdbcRepository implements R
         }, mapper);
     }
 
-    /** Gán 6 tham số đầu, dùng chung cho INSERT và UPDATE. */
-    private void bind(PreparedStatement ps, RepairJob job) throws SQLException {
-        ps.setInt(1, job.getDevice().getId());
-        ps.setString(2, job.getIssueDescription());
-        ps.setString(3, job.getStatus().name());
-        ps.setInt(4, job.getDesiredDays());
-        setDateTime(ps, 5, job.getEstimatedReadyAt());
-        setDateTime(ps, 6, job.getClosedAt());
+    @Override
+    public RepairJob saveWithInitialHistory(RepairJob job, String note) {
+        requireDevice(job);
+        if (job.getStatus() == null) {
+            job.setStatus(JobStatus.RECEIVED);
+        } else if (job.getStatus() != JobStatus.RECEIVED) {
+            throw new IllegalArgumentException("Đơn mới phải ở trạng thái RECEIVED");
+        }
+        int previousId = job.getId();
+        try {
+            inTransaction("Tạo đơn sửa chữa kèm lịch sử", c -> {
+                JobWrites.insertJob(c, job);
+                StatusHistory first = new StatusHistory();
+                first.setJobId(job.getId());
+                first.setOldStatus(null);
+                first.setNewStatus(JobStatus.RECEIVED);
+                first.setNote(note);
+                JobWrites.insertHistory(c, first);
+            });
+        } catch (RuntimeException e) {
+            job.setId(previousId); // transaction đã rollback nên id vừa sinh không còn hiệu lực
+            throw e;
+        }
+        return job;
+    }
+
+    @Override
+    public void updateWithHistory(RepairJob job, StatusHistory history) {
+        JobWrites.requireJobAndHistory(job, history);
+        inTransaction("Cập nhật trạng thái đơn kèm lịch sử", c -> {
+            JobWrites.updateJobStatus(c, job);
+            JobWrites.insertHistory(c, history);
+        });
     }
 
     private static void requireDevice(RepairJob job) {
