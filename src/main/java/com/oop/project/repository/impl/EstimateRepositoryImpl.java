@@ -1,5 +1,19 @@
 package com.oop.project.repository.impl;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+
+import javax.sql.DataSource;
+
 import com.oop.project.exception.EntityNotFoundException;
 import com.oop.project.model.Estimate;
 import com.oop.project.model.EstimateStatus;
@@ -12,19 +26,6 @@ import com.oop.project.repository.mapper.EstimateMapper;
 import com.oop.project.repository.mapper.LaborServiceMapper;
 import com.oop.project.repository.mapper.PartMapper;
 import com.oop.project.repository.mapper.RowMapper;
-
-import javax.sql.DataSource;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
 
 public class EstimateRepositoryImpl extends AbstractJdbcRepository implements EstimateRepository {
 
@@ -64,31 +65,31 @@ public class EstimateRepositoryImpl extends AbstractJdbcRepository implements Es
         super(dataSource);
     }
 
-    // ------------------------------------------------------------------ đọc
+    // ------------------------------------------------------------------ read
 
     @Override
     public Optional<Estimate> findById(int id) {
-        return loadEstimates("Tìm báo giá", SELECT + " WHERE e.id = ?",
+        return loadEstimates("Find estimate", SELECT + " WHERE e.id = ?",
                 ps -> ps.setInt(1, id)).stream().findFirst();
     }
 
     @Override
     public List<Estimate> findByJobId(int jobId) {
-        return loadEstimates("Lấy báo giá theo đơn",
+        return loadEstimates("Get estimates by job",
                 SELECT + " WHERE e.job_id = ? ORDER BY e.version ASC",
                 ps -> ps.setInt(1, jobId));
     }
 
     @Override
     public Optional<Estimate> findLatestByJobId(int jobId) {
-        return loadEstimates("Lấy báo giá mới nhất của đơn",
+        return loadEstimates("Get latest estimate of job",
                 SELECT + " WHERE e.job_id = ? ORDER BY e.version DESC LIMIT 1",
                 ps -> ps.setInt(1, jobId)).stream().findFirst();
     }
 
     /**
-     * Đọc phần đầu của các báo giá rồi nạp kèm parts và laborServices (cùng một
-     * connection).
+     * Reads the estimate headers, then loads their parts and laborServices (on the
+     * same connection).
      */
     private List<Estimate> loadEstimates(String action, String sql, StatementSetter setter) {
         try (Connection c = dataSource.getConnection()) {
@@ -108,7 +109,7 @@ public class EstimateRepositoryImpl extends AbstractJdbcRepository implements Es
         }
     }
 
-    /** Nạp các dòng chi tiết cho nhiều báo giá bằng 2 truy vấn (không N+1). */
+    /** Loads the lines of several estimates with 2 queries (no N+1). */
     private void attachLines(Connection c, List<Estimate> estimates) throws SQLException {
         if (estimates.isEmpty()) {
             return;
@@ -124,7 +125,7 @@ public class EstimateRepositoryImpl extends AbstractJdbcRepository implements Es
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     Part part = partMapper.map(rs);
-                    byId.get(part.getEstimateId()).getParts().add(part);
+                    byId.get(part.getEstimateId()).addPart(part);
                 }
             }
         }
@@ -133,7 +134,7 @@ public class EstimateRepositoryImpl extends AbstractJdbcRepository implements Es
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     LaborService labor = laborMapper.map(rs);
-                    byId.get(labor.getEstimateId()).getLaborServices().add(labor);
+                    byId.get(labor.getEstimateId()).addLaborService(labor);
                 }
             }
         }
@@ -147,43 +148,49 @@ public class EstimateRepositoryImpl extends AbstractJdbcRepository implements Es
         }
     }
 
-    // ------------------------------------------------------------------ ghi
+    // ------------------------------------------------------------------ write
 
     /**
-     * Lưu header và các dòng trong một transaction: hoặc tất cả cùng thành công,
-     * hoặc không có gì được lưu.
+     * Saves the header and the lines in one transaction: either everything is
+     * stored or nothing is. The version is always assigned here (see
+     * insertEstimate); this method only inserts new estimates (id must be 0).
      */
     @Override
     public Estimate save(Estimate estimate) {
         if (estimate == null || estimate.getJobId() <= 0) {
             throw new IllegalArgumentException(
-                    "Báo giá phải gắn với một đơn sửa chữa đã lưu (jobId > 0)");
+                    "Estimate must belong to a saved repair job (jobId > 0)");
         }
-        inTransaction("Lưu báo giá", c -> insertEstimate(c, estimate));
+        if (estimate.getId() != 0) {
+            throw new IllegalArgumentException(
+                    "Estimate has already been saved (id must be 0)");
+        }
+        inTransaction("Save estimate", c -> insertEstimate(c, estimate));
         return estimate;
     }
 
     private void insertEstimate(Connection c, Estimate estimate) throws SQLException {
         int jobId = estimate.getJobId();
 
-        // Khóa dòng của đơn để hai người cùng tạo báo giá không bị trùng version
+        // Lock the job row so two concurrent callers cannot get the same version
         try (PreparedStatement ps = c.prepareStatement(LOCK_JOB)) {
             ps.setInt(1, jobId);
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) {
                     throw new EntityNotFoundException(
-                            "Không tìm thấy đơn sửa chữa có id = " + jobId);
+                            "Repair job not found with id = " + jobId);
                 }
             }
         }
 
-        if (estimate.getVersion() <= 0) {
-            try (PreparedStatement ps = c.prepareStatement(NEXT_VERSION)) {
-                ps.setInt(1, jobId);
-                try (ResultSet rs = ps.executeQuery()) {
-                    rs.next();
-                    estimate.setVersion(rs.getInt(1));
-                }
+        // The repository always assigns the version: highest version of the job + 1.
+        // Any version already set on the estimate (the model default is 1) is
+        // overwritten.
+        try (PreparedStatement ps = c.prepareStatement(NEXT_VERSION)) {
+            ps.setInt(1, jobId);
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                estimate.setVersion(rs.getInt(1));
             }
         }
         if (estimate.getStatus() == null) {
@@ -241,11 +248,13 @@ public class EstimateRepositoryImpl extends AbstractJdbcRepository implements Es
     @Override
     public void updateStatus(int estimateId, EstimateStatus status) {
         Objects.requireNonNull(status, "status");
-        int rows = executeUpdate("Cập nhật trạng thái báo giá", UPDATE_STATUS, ps -> {
+        int rows = executeUpdate("Update estimate status", UPDATE_STATUS, ps -> {
             ps.setString(1, status.name());
             ps.setInt(2, estimateId);
         });
-        requireFound(rows, "báo giá", estimateId);
+        if (rows == 0) {
+            throw new EntityNotFoundException("Estimate not found with id = " + estimateId);
+        }
     }
 
     @Override
@@ -253,14 +262,14 @@ public class EstimateRepositoryImpl extends AbstractJdbcRepository implements Es
             RepairJob job, StatusHistory history) {
         Objects.requireNonNull(status, "status");
         JobWrites.requireJobAndHistory(job, history);
-        inTransaction("Cập nhật báo giá và đơn sửa chữa", c -> {
+        inTransaction("Update estimate and repair job", c -> {
             try (PreparedStatement ps = c.prepareStatement(UPDATE_STATUS_OF_JOB)) {
                 ps.setString(1, status.name());
                 ps.setInt(2, estimateId);
                 ps.setInt(3, job.getId());
                 if (ps.executeUpdate() == 0) {
-                    throw new EntityNotFoundException("Không tìm thấy báo giá có id = "
-                            + estimateId + " thuộc đơn có id = " + job.getId());
+                    throw new EntityNotFoundException("Estimate not found with id = "
+                            + estimateId + " for job with id = " + job.getId());
                 }
             }
             JobWrites.updateJobStatus(c, job);

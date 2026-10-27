@@ -1,5 +1,14 @@
 package com.oop.project.repository.impl;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Optional;
+
+import javax.sql.DataSource;
+
 import com.oop.project.exception.DataAccessException;
 import com.oop.project.model.JobStatus;
 import com.oop.project.model.RepairJob;
@@ -9,13 +18,6 @@ import com.oop.project.repository.mapper.CustomerMapper;
 import com.oop.project.repository.mapper.DeviceMapper;
 import com.oop.project.repository.mapper.RepairJobMapper;
 import com.oop.project.repository.mapper.RowMapper;
-
-import javax.sql.DataSource;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.EnumSet;
-import java.util.List;
-import java.util.Optional;
 
 public class RepairJobRepositoryImpl extends AbstractJdbcRepository implements RepairJobRepository {
 
@@ -154,18 +156,21 @@ public class RepairJobRepositoryImpl extends AbstractJdbcRepository implements R
             throw new IllegalArgumentException("Đơn mới phải ở trạng thái RECEIVED");
         }
         int previousId = job.getId();
+        LocalDateTime previousCreatedAt = job.getCreatedAt();
+        LocalDateTime previousUpdatedAt = job.getUpdatedAt();
         try {
             inTransaction("Tạo đơn sửa chữa kèm lịch sử", c -> {
-                JobWrites.insertJob(c, job);
-                StatusHistory first = new StatusHistory();
-                first.setJobId(job.getId());
-                first.setOldStatus(null);
-                first.setNewStatus(JobStatus.RECEIVED);
-                first.setNote(note);
+                JobWrites.insertJob(c, job); // sets id, createdAt, updatedAt
+                // Khởi tạo StatusHistory bằng Constructor nhận tham số: (jobId, oldStatus,
+                // newStatus, note)
+                StatusHistory first = new StatusHistory(job.getId(), null, JobStatus.RECEIVED, note);
                 JobWrites.insertHistory(c, first);
             });
         } catch (RuntimeException e) {
-            job.setId(previousId); // transaction đã rollback nên id vừa sinh không còn hiệu lực
+            // The transaction was rolled back, so the generated values are no longer valid
+            job.setId(previousId);
+            job.setCreatedAt(previousCreatedAt);
+            job.setUpdatedAt(previousUpdatedAt);
             throw e;
         }
         return job;

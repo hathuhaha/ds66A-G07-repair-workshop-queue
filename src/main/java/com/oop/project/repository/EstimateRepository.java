@@ -11,10 +11,12 @@ import java.util.Optional;
 public interface EstimateRepository {
 
     /**
-     * Lưu báo giá mới kèm các dòng parts và laborServices trong một transaction.
-     * Nếu estimate.getVersion() <= 0 thì version được tự gán (lớn nhất của đơn +
-     * 1).
-     * Trả về estimate đã có id, version và id của từng dòng.
+     * Saves a new estimate (id must be 0) with its parts and laborServices in one
+     * transaction. The version is always assigned by the repository (highest
+     * version of the job + 1); any version already set on the estimate is
+     * overwritten.
+     * Returns the estimate with id, version, createdAt, updatedAt and the id of
+     * each line set. Throws EntityNotFoundException if the job does not exist.
      */
     Estimate save(Estimate estimate);
 

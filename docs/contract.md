@@ -20,16 +20,16 @@ Dựng database: chạy lần lượt `db/schema.sql` rồi `db/seed_data.sql` t
 ---
 2. Quy ước chung
 Chủ đề	Quy ước	Trạng thái
-Đặt tên Java	`camelCase` cho field, `PascalCase` cho class	[ĐÃ CHỐT]
-Đặt tên DB	`snake_case` cho bảng và cột, tên bảng ở dạng số nhiều	[ĐÃ CHỐT]
-Khóa chính	`SERIAL` ở DB, `int` ở Java, tên cột là `id`	[ĐÃ CHỐT]
-Khóa ngoại	tên `<bảng_số_ít>_id`, ví dụ `customer_id`	[ĐÃ CHỐT]
-Tiền tệ	`NUMERIC(12,2)` ở DB, `BigDecimal` ở Java. Không dùng `double`/`float`	[ĐÃ CHỐT]
-Thời gian	`TIMESTAMP` ở DB, `LocalDateTime` ở Java	[ĐÃ CHỐT]
-Chuỗi	`VARCHAR(n)` ở DB, `String` ở Java	[ĐÃ CHỐT]
-Giá trị null	Field cho phép null được liệt kê ở mục 4.8; các field này đều là kiểu đối tượng (`String`, `LocalDateTime`, `JobStatus`) nên để `null` khi không có giá trị. Nếu sau này thêm field số nullable thì dùng `Integer`/`BigDecimal` thay cho `int`	[ĐÃ CHỐT]
-Xóa dữ liệu	`ON DELETE RESTRICT` cho mọi khóa ngoại, không dùng `CASCADE`, để không mất lịch sử sửa chữa	[ĐÃ CHỐT]
-Audit	Bảng chính có `created_at` (mặc định `CURRENT_TIMESTAMP`) và `updated_at`	[ĐÃ CHỐT]
+Đặt tên Java	`camelCase` cho field, `PascalCase` cho class	[CẦN CHỐT]
+Đặt tên DB	`snake_case` cho bảng và cột, tên bảng ở dạng số nhiều	[CẦN CHỐT]
+Khóa chính	`SERIAL` ở DB, `int` ở Java, tên cột là `id`	[CẦN CHỐT]
+Khóa ngoại	tên `<bảng_số_ít>_id`, ví dụ `customer_id`	[CẦN CHỐT]
+Tiền tệ	`NUMERIC(12,2)` ở DB, `BigDecimal` ở Java. Không dùng `double`/`float`	[CẦN CHỐT]
+Thời gian	`TIMESTAMP` ở DB, `LocalDateTime` ở Java	[CẦN CHỐT]
+Chuỗi	`VARCHAR(n)` ở DB, `String` ở Java	[CẦN CHỐT]
+Giá trị null	Field cho phép null được liệt kê ở mục 4.8; các field này đều là kiểu đối tượng (`String`, `LocalDateTime`, `JobStatus`) nên để `null` khi không có giá trị. Nếu sau này thêm field số nullable thì dùng `Integer`/`BigDecimal` thay cho `int`	[CẦN CHỐT]
+Xóa dữ liệu	`ON DELETE RESTRICT` cho mọi khóa ngoại, không dùng `CASCADE`, để không mất lịch sử sửa chữa	[CẦN CHỐT]
+Audit	Bảng chính có `created_at` (mặc định `CURRENT_TIMESTAMP`) và `updated_at`	[CẦN CHỐT]
 ---
 3. Enum
 3.1 `JobStatus` (trạng thái đơn sửa chữa)
@@ -41,7 +41,7 @@ Giá trị	Ý nghĩa
 `REPAIRING`	Đang sửa chữa
 `READY`	Sửa xong, chờ khách nhận
 `CLOSED`	Đã đóng đơn
-3.2 `EstimateStatus` (trạng thái bản báo giá) [ĐÃ CHỐT]
+3.2 `EstimateStatus` (trạng thái bản báo giá) [CẦN CHỐT]
 Giá trị	Ý nghĩa
 `DRAFT`	Bản nháp, đang soạn
 `APPROVED`	Khách đã duyệt
@@ -73,12 +73,12 @@ Field Java	Kiểu Java	Cột DB	Kiểu DB	Bắt buộc	Ghi chú
 `device`	`Device`	`device_id`	`INT` FK → `devices.id`	có	
 `issueDescription`	`String`	`issue_description`	`TEXT`	có	mô tả lỗi khách báo
 `status`	`JobStatus`	`status`	`VARCHAR(30)` + `CHECK`	có	mặc định `RECEIVED`
-`desiredDays`	`int`	`desired_days`	`INT` + `CHECK (desired_days > 0)`	có	[ĐÃ CHỐT] số ngày khách mong muốn nhận hàng, tính từ lúc tiếp nhận. Cùng với `createdAt` tạo thành hạn chót dùng để xếp hàng ưu tiên (mục 5.1)
+`desiredDays`	`int`	`desired_days`	`INT` + `CHECK (desired_days > 0)`	có	[CẦN CHỐT] số ngày khách mong muốn nhận hàng, tính từ lúc tiếp nhận. Cùng với `createdAt` tạo thành hạn chót dùng để xếp hàng ưu tiên (mục 5.1)
 `estimatedReadyAt`	`LocalDateTime`	`estimated_ready_at`	`TIMESTAMP`	không	[ĐÃ CHỐT] thời điểm ước tính (giả định) khách nhận được hàng, do nhân viên nhập thủ công, hệ thống không tự tính. `null` cho tới khi tiệm đưa ra ước tính. Có thể sửa nhiều lần qua `updateEstimatedReadyAt`, không ràng buộc với hạn chót và không ảnh hưởng thứ tự hàng đợi (mục 5.1)
 `closedAt`	`LocalDateTime`	`closed_at`	`TIMESTAMP`	không	chỉ có giá trị khi `CLOSED`
 `createdAt` / `updatedAt`	`LocalDateTime`	`created_at` / `updated_at`	`TIMESTAMP`	có	
 4.4 `Estimate` ↔ bảng `estimates`
-[ĐÃ CHỐT] Quan hệ Job ↔ Estimate là 1-N: một job có thể có nhiều bản báo giá theo thời gian (`version` tăng dần). Bản đang có hiệu lực là bản có `version` lớn nhất.
+[CẦN CHỐT] Quan hệ Job ↔ Estimate là 1-N: một job có thể có nhiều bản báo giá theo thời gian (`version` tăng dần). Bản đang có hiệu lực là bản có `version` lớn nhất.
 Field Java	Kiểu Java	Cột DB	Kiểu DB	Bắt buộc	Ghi chú
 `id`	`int`	`id`	`SERIAL` PK	có	
 `jobId`	`int`	`job_id`	`INT` FK → `repair_jobs.id`	có	
@@ -88,9 +88,20 @@ Field Java	Kiểu Java	Cột DB	Kiểu DB	Bắt buộc	Ghi chú
 `parts`	`List<Part>`	(bảng `parts`)			nạp kèm khi đọc estimate
 `laborServices`	`List<LaborService>`	(bảng `labor_services`)			nạp kèm khi đọc estimate
 `createdAt` / `updatedAt`	`LocalDateTime`	`created_at` / `updated_at`	`TIMESTAMP`	có	
-[ĐÃ CHỐT] Tổng tiền không lưu ở DB. Class `Estimate` tính `getTotalCost()` = tổng (`unitPrice × quantity`) của các part + tổng (`hours × hourlyRate`) của các labor service. Như vậy không bao giờ lệch giữa tổng và chi tiết.
+[CẦN CHỐT] Tổng tiền không lưu ở DB. Class `Estimate` tính `getTotalCost()` = tổng `getCost()` của mọi dòng (các part và các labor service). Như vậy không bao giờ lệch giữa tổng và chi tiết.
+4.4.1 `EstimateItem`: interface chung của `Part` và `LaborService` [CẦN CHỐT]
+```java
+public interface EstimateItem {
+    String getName();      // tên hiển thị của dòng
+    BigDecimal getCost();  // thành tiền của dòng
+}
+```
+`Part` và `LaborService` cùng `implements EstimateItem`, để giao diện hiển thị và `Estimate` tính tổng bằng một vòng lặp trên mọi dòng.
+Đây là interface chỉ có hàm tính toán, không có cột tương ứng ở DB nên không ảnh hưởng schema và mapper. Repository chỉ đọc/ghi các field ở mục 4.5 và 4.6, không dùng `getName()` hay `getCost()`.
+Quy ước tính: `Part.getName()` = `name`, `Part.getCost()` = `unitPrice × quantity`; `LaborService.getName()` = `description`, `LaborService.getCost()` = `hours × hourlyRate`.
+`Part` và `LaborService` phải giữ nguyên các field và setter ở mục 4.5, 4.6 vì mapper dựa vào chúng.
 4.5 `Part` ↔ bảng `parts`
-[ĐÃ CHỐT] `parts` là các dòng linh kiện thuộc một estimate (không phải danh mục kho).
+[CẦN CHỐT] `parts` là các dòng linh kiện thuộc một estimate (không phải danh mục kho).
 Field Java	Kiểu Java	Cột DB	Kiểu DB	Bắt buộc	Ghi chú
 `id`	`int`	`id`	`SERIAL` PK	có	
 `estimateId`	`int`	`estimate_id`	`INT` FK → `estimates.id`	có	
@@ -98,7 +109,7 @@ Field Java	Kiểu Java	Cột DB	Kiểu DB	Bắt buộc	Ghi chú
 `unitPrice`	`BigDecimal`	`unit_price`	`NUMERIC(12,2)`	có	`CHECK (unit_price >= 0)`
 `quantity`	`int`	`quantity`	`INT`	có	`CHECK (quantity > 0)`
 4.6 `LaborService` ↔ bảng `labor_services`
-[ĐÃ CHỐT] Tương tự `parts`: các dòng công thợ thuộc một estimate.
+[CẦN CHỐT] Tương tự `parts`: các dòng công thợ thuộc một estimate.
 Field Java	Kiểu Java	Cột DB	Kiểu DB	Bắt buộc	Ghi chú
 `id`	`int`	`id`	`SERIAL` PK	có	
 `estimateId`	`int`	`estimate_id`	`INT` FK → `estimates.id`	có	
@@ -113,7 +124,7 @@ Field Java	Kiểu Java	Cột DB	Kiểu DB	Bắt buộc	Ghi chú
 `newStatus`	`JobStatus`	`new_status`	`VARCHAR(30)` + `CHECK`	có	
 `note`	`String`	`note`	`TEXT`	không	
 `changedAt`	`LocalDateTime`	`changed_at`	`TIMESTAMP`	có	mặc định `CURRENT_TIMESTAMP`
-4.8 Danh sách field cho phép null [ĐÃ CHỐT]
+4.8 Danh sách field cho phép null [CẦN CHỐT]
 Tổng hợp từ các bảng ở trên. Mọi field không nằm trong danh sách này là bắt buộc (`NOT NULL`): Thành viên 1 phải đảm bảo chúng có giá trị trước khi gọi `save()`, nếu không DB báo lỗi và Repository ném `DataAccessException`.
 Class	Field Java	Kiểu Java	Cột DB	Khi nào là `null`
 `Customer`	`email`	`String`	`email`	Khách không cung cấp email
@@ -176,7 +187,7 @@ Hiển thị lỗi cho người dùng	Thành viên 3
 ---
 7. Hợp đồng tầng Repository
 Package: `com.oop.project.repository` (interface), `com.oop.project.repository.impl` (hiện thực JDBC).
-[ĐÃ CHỐT] Tên gọi: dùng hậu tố `Repository` (ví dụ `CustomerRepository`). Trong tài liệu môn học, Repository chính là tầng DAO.
+[CẦN CHỐT] Tên gọi: dùng hậu tố `Repository` (ví dụ `CustomerRepository`). Trong tài liệu môn học, Repository chính là tầng DAO.
 ```java
 public interface GenericRepository<T, ID> {
     Optional<T> findById(ID id);
@@ -263,7 +274,7 @@ public interface JobService {
     void updateEstimatedReadyAt(int jobId, LocalDateTime estimatedReadyAt);
 }
 ```
-[ĐÃ CHỐT] Hàm nào kiểm tra luật chuyển trạng thái: đề xuất đặt trong `JobService` (Thành viên 1 viết logic kiểm tra, Thành viên 2 gọi Repository để lưu).
+[CẦN CHỐT] Hàm nào kiểm tra luật chuyển trạng thái: đề xuất đặt trong `JobService` (Thành viên 1 viết logic kiểm tra, Thành viên 2 gọi Repository để lưu).
 Hàm service gọi hàm repository nào (mỗi hàm repository ở dưới tự chạy trong một transaction):
 Hàm `JobService`	Hàm repository	Ghi chú
 `createJob`	`RepairJobRepository.saveWithInitialHistory(job, note)`	Ghi đơn mới và dòng history đầu tiên
@@ -285,7 +296,7 @@ Mọi lỗi nghiệp vụ (vi phạm luật của hệ thống) kế thừa `Dom
 Message lỗi nghiệp vụ viết bằng tiếng Việt, đủ rõ để Thành viên 3 hiển thị thẳng cho người dùng (ví dụ: "Chỉ đơn ở trạng thái READY mới được đóng").
 ---
 10. Kịch bản demo và dữ liệu mẫu
-Thành viên 2 viết `seed_data.sql` dựa trên bảng này. [ĐÃ CHỐT] với Thành viên 1 và 3.
+Thành viên 2 viết `seed_data.sql` dựa trên bảng này. [CẦN CHỐT] với Thành viên 1 và 3.
 Mã	Kịch bản	Dữ liệu cần có sẵn
 Demo 1	Tạo đơn và theo dõi lịch sử trạng thái	Ít nhất 2 customer, mỗi người 1–2 device
 Demo 2	Luồng báo giá (Estimate)	Một job đang `WAITING_FOR_APPROVAL`, có estimate `DRAFT` gồm khoảng 2 part và 1 labor service
@@ -316,6 +327,7 @@ Ngày	Người sửa	Nội dung
 2026-10-22	Thành viên 2	Chốt phạm vi hàng đợi: thêm `findQueue(Collection<JobStatus>)` bên cạnh `findQueue()` (mục 5.1, 7)
 2026-10-22	Thành viên 1 + 2	Thêm `DomainException` làm lớp cha các lỗi nghiệp vụ, `InvalidStatusTransitionException` kế thừa nó (mục 9)
 2026-10-22	Thành viên 2	Thêm `saveWithInitialHistory`, `updateWithHistory` (RepairJobRepository) và `updateEstimateStatusAndJob` (EstimateRepository), mỗi hàm chạy trong 1 transaction; thêm bảng ánh xạ service sang repository (mục 7, 8)
+2026-10-22	Thành viên 1 + 2	Ghi nhận interface `EstimateItem` (chung cho `Part`, `LaborService`) ở mục 4.4.1; `Estimate.getTotalCost()` tính từ `getCost()`
 ---
 13. Danh sách việc cần chốt khi họp
 [ ] Phiên bản Java dùng chung

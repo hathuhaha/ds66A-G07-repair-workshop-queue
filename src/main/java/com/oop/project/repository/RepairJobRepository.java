@@ -40,8 +40,8 @@ public interface RepairJobRepository extends GenericRepository<RepairJob, Intege
      * Cập nhật status, closedAt, updatedAt của đơn rồi ghi dòng lịch sử trong MỘT
      * transaction.
      * Dùng cho updateJobStatusWithHistory. Các field khác của đơn không bị ghi.
-     * history.newStatus phải khớp job.status; history.jobId bỏ trống (0) thì tự
-     * gán.
+     * history.newStatus must match job.status; history.jobId must equal job.id
+     * (StatusHistory does not allow jobId <= 0, so it is never auto-assigned).
      * Đơn CLOSED phải có closedAt, đơn chưa CLOSED phải để closedAt = null.
      */
     void updateWithHistory(RepairJob job, StatusHistory history);

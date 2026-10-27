@@ -1,21 +1,20 @@
 package com.oop.project.repository.impl;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
 import com.oop.project.exception.EntityNotFoundException;
 import com.oop.project.model.JobStatus;
 import com.oop.project.model.RepairJob;
 import com.oop.project.model.StatusHistory;
 import com.oop.project.repository.mapper.RowMapper;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-
 /**
- * Các câu ghi liên quan đến đơn sửa chữa và lịch sử trạng thái, chạy trên một
- * Connection do
- * người gọi cung cấp để nhiều câu lệnh nằm chung một transaction.
- * Dùng chung cho RepairJobRepositoryImpl và EstimateRepositoryImpl.
+ * Write statements for repair jobs and status history. They run on a Connection
+ * supplied by the caller so that several statements share one transaction.
+ * Shared by RepairJobRepositoryImpl and EstimateRepositoryImpl.
  */
 final class JobWrites {
 
@@ -33,7 +32,7 @@ final class JobWrites {
     }
 
     /**
-     * Gán 6 tham số của INSERT_JOB (cũng dùng cho UPDATE đầy đủ trong
+     * Binds the 6 parameters of INSERT_JOB (also used for the full UPDATE in
      * RepairJobRepositoryImpl).
      */
     static void bind(PreparedStatement ps, RepairJob job) throws SQLException {
@@ -58,8 +57,8 @@ final class JobWrites {
     }
 
     /**
-     * Chỉ ghi status, closed_at, updated_at (status và closed_at phải đổi cùng một
-     * câu lệnh).
+     * Writes only status, closed_at and updated_at (status and closed_at must
+     * change in the same statement).
      */
     static void updateJobStatus(Connection c, RepairJob job) throws SQLException {
         try (PreparedStatement ps = c.prepareStatement(UPDATE_JOB_STATUS)) {
@@ -68,7 +67,7 @@ final class JobWrites {
             ps.setInt(3, job.getId());
             if (ps.executeUpdate() == 0) {
                 throw new EntityNotFoundException(
-                        "Không tìm thấy đơn sửa chữa có id = " + job.getId());
+                        "Repair job not found with id = " + job.getId());
             }
         }
     }
@@ -82,40 +81,41 @@ final class JobWrites {
             try (ResultSet rs = ps.executeQuery()) {
                 rs.next();
                 history.setId(rs.getInt("id"));
-                history.setChangedAt(RowMapper.toLocalDateTime(rs, "changed_at"));
             }
         }
     }
 
     /**
-     * Kiểm tra đầu vào của các hàm "cập nhật đơn kèm lịch sử" trước khi mở
-     * transaction, và
-     * gán jobId cho history nếu chưa có.
+     * Validates the input of the "update job with history" methods before a
+     * transaction is opened. StatusHistory is immutable, so jobId must already be
+     * set by its constructor.
      */
     static void requireJobAndHistory(RepairJob job, StatusHistory history) {
         if (job == null || job.getId() <= 0) {
-            throw new IllegalArgumentException("Đơn sửa chữa phải đã được lưu (id > 0)");
+            throw new IllegalArgumentException("Repair job must be saved (id > 0)");
         }
         if (job.getStatus() == null) {
-            throw new IllegalArgumentException("Đơn sửa chữa phải có trạng thái");
+            throw new IllegalArgumentException("Repair job must have a status");
         }
         boolean closed = job.getStatus() == JobStatus.CLOSED;
         if (closed && job.getClosedAt() == null) {
-            throw new IllegalArgumentException("Đơn CLOSED phải có closedAt");
+            throw new IllegalArgumentException("A CLOSED job must have closedAt");
         }
         if (!closed && job.getClosedAt() != null) {
-            throw new IllegalArgumentException("Đơn chưa CLOSED phải để closedAt = null");
+            throw new IllegalArgumentException("A job that is not CLOSED must have closedAt = null");
         }
         if (history == null || history.getNewStatus() == null) {
-            throw new IllegalArgumentException("Lịch sử phải có trạng thái mới (newStatus)");
+            throw new IllegalArgumentException("History must have a new status (newStatus)");
         }
         if (history.getNewStatus() != job.getStatus()) {
             throw new IllegalArgumentException(
-                    "Trạng thái mới trong lịch sử phải khớp với trạng thái của đơn");
+                    "The new status in the history must match the status of the job");
         }
-        if (history.getJobId() > 0 && history.getJobId() != job.getId()) {
-            throw new IllegalArgumentException("Lịch sử thuộc về một đơn khác");
+        if (history.getJobId() <= 0) {
+            throw new IllegalArgumentException("History must belong to a valid job (jobId > 0)");
         }
-        history.setJobId(job.getId());
+        if (history.getJobId() != job.getId()) {
+            throw new IllegalArgumentException("History belongs to a different job");
+        }
     }
 }

@@ -25,6 +25,8 @@ replay_pid*
 
 # Maven build target directory
 /target/
+src/main/resources/application.properties
+src/test/resources/application-test.properties
 
 # IDE files
 .vscode/

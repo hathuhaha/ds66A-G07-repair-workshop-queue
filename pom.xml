@@ -5,10 +5,10 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.oop</groupId>
-    <artifactId>air-workshop-queue</artifactId>
+    <artifactId>repair-workshop-queue</artifactId>
     <version>1.0-SNAPSHOT</version>
     <packaging>jar</packaging>
-    <name>air-workshop-queue</name>
+    <name>repair-workshop-queue</name>
 
     <properties>
         <!-- Cả nhóm dùng chung một phiên bản Java (đổi 17 thành 21 nếu cả nhóm dùng JDK 21) -->
@@ -72,4 +72,21 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>dbsmoke</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <configuration>
+                            <mainClass>com.oop.project.DbSmoke</mainClass>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

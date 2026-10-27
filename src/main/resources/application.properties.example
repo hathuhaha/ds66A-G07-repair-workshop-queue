@@ -1,0 +1,6 @@
+# Copy this file to application.properties (same folder) and fill in your own settings.
+# application.properties is ignored by git, never commit it.
+db.url=jdbc:postgresql://localhost:5432/repair_shop
+db.user=postgres
+db.password=your_password_here
+db.pool.size=5
