@@ -37,7 +37,7 @@ public class WarrantyRepositoryImpl extends AbstractJdbcRepository implements Wa
     @Override
     public List<WarrantyRecord> findAll() {
         String sql = """
-                SELECT warranty_id, repair_id, device_name, customer_name,
+                SELECT warranty_id, repair_id, serial_number, device_name, customer_name,
                        start_date, end_date, source, warranty_status
                 FROM v_warranty_list
                 ORDER BY end_date DESC, warranty_id DESC
@@ -45,9 +45,9 @@ public class WarrantyRepositoryImpl extends AbstractJdbcRepository implements Wa
         return queryList("Lấy danh sách bảo hành", sql, NO_PARAMS, rs -> new WarrantyRecord(
                 rs.getInt("warranty_id"),
                 (Integer) rs.getObject("repair_id"),
+                rs.getString("serial_number"),
                 rs.getString("device_name"),
                 rs.getString("customer_name"),
-                null, // Điều chỉnh vị trí trường phụ nếu WarrantyRecord của bạn có 9 tham số
                 rs.getDate("start_date").toLocalDate(),
                 rs.getDate("end_date").toLocalDate(),
                 rs.getString("source"),
@@ -57,13 +57,13 @@ public class WarrantyRepositoryImpl extends AbstractJdbcRepository implements Wa
     @Override
     public List<WarrantyCandidate> findCandidates() {
         String sql = """
-                SELECT repair_id, device_id, device_name, customer_name, received_at, completed_at
+                SELECT repair_id, serial_number, device_name, customer_name, received_at, completed_at
                 FROM v_warranty_candidates
                 ORDER BY completed_at DESC NULLS LAST, repair_id DESC
                 """;
         return queryList("Lấy đơn đủ điều kiện tạo bảo hành", sql, NO_PARAMS, rs -> new WarrantyCandidate(
                 rs.getInt("repair_id"),
-                rs.getString("serial_number"),
+                rs.getString("serial_number"), // Đổi từ getInt("device_id") sang getString("serial_number")
                 rs.getString("device_name"),
                 rs.getString("customer_name"),
                 rs.getTimestamp("received_at").toLocalDateTime(),

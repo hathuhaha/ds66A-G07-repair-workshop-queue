@@ -268,9 +268,12 @@ JOIN devices   d ON d.id = j.device_id
 JOIN customers c ON c.id = d.customer_id;
 
 -- 13.2 Tab Warranty (danh sách + dashboard Total / Valid / Expired).
+DROP VIEW IF EXISTS v_warranty_list CASCADE;
+
 CREATE VIEW v_warranty_list AS
 SELECT w.id                                   AS warranty_id,
        w.repair_job_id                        AS repair_id,
+       d.serial_number                        AS serial_number,
        COALESCE(NULLIF(TRIM(CONCAT_WS(' ', d.brand, d.model)), ''),
                 d.device_type)                AS device_name,
        c.full_name                            AS customer_name,
@@ -285,9 +288,11 @@ JOIN customers c ON c.id = d.customer_id;
 
 -- 13.3 Bảng chọn job để tạo bảo hành: job đã sửa xong (READY/CLOSED) và chưa
 --      có bảo hành. "Completed At" lấy từ lần chuyển sang READY gần nhất.
+DROP VIEW IF EXISTS v_warranty_candidates CASCADE;
+
 CREATE VIEW v_warranty_candidates AS
 SELECT j.id                                   AS repair_id,
-       d.id                                   AS device_id,
+       d.serial_number                        AS serial_number,
        COALESCE(NULLIF(TRIM(CONCAT_WS(' ', d.brand, d.model)), ''),
                 d.device_type)                AS device_name,
        c.full_name                            AS customer_name,

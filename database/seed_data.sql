@@ -165,7 +165,7 @@ SELECT setval(pg_get_serial_sequence('status_history',  'id'), (SELECT MAX(id) F
 -- chúng có khóa ngoại trỏ tới bảng cha.
 TRUNCATE TABLE payments, warranties, status_history, labor_services, parts,
                estimates, repair_jobs, devices, customers
-    RESTART IDENTITY;
+    RESTART IDENTITY CASCADE;
 
 -- 1. Khách hàng (có người để trống email/địa chỉ để thử field nullable)
 INSERT INTO customers (id, full_name, phone, email, address) VALUES
