@@ -2,6 +2,9 @@
     "java.project.sourcePaths": [
         "src"
     ],
-    "java.project.referencedLibraries": [],
+    "java.project.referencedLibraries": [
+        "lib/postgresql-42.7.14.jar"
+    ],
     "java.project.outputPath": "bin"
 }
+

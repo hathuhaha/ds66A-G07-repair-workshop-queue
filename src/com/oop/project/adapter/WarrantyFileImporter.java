@@ -1,8 +1,6 @@
-
 package com.oop.project.adapter;
 
 import com.oop.project.model.WarrantyStatus;
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -35,15 +33,17 @@ public class WarrantyFileImporter {
             }
 
             try {
-                int deviceId = Integer.parseInt(parts[0].trim());
-                if (deviceId <= 0) {
-                    throw new IllegalArgumentException("device ID must be positive");
+                // Đọc serialNumber dạng String thay vì int
+                String serialNumber = parts[0].trim();
+                if (serialNumber.isEmpty()) {
+                    throw new IllegalArgumentException("Serial number must not be empty");
                 }
+
                 WarrantyStatus status = WarrantyStatus.valueOf(
                         parts[1].trim().toUpperCase(Locale.ROOT));
                 String description = parts[2].trim();
 
-                LegacyWarrantyRecord record = new LegacyWarrantyRecord(deviceId, status, description);
+                LegacyWarrantyRecord record = new LegacyWarrantyRecord(serialNumber, status, description);
                 results.add(new WarrantyAdapter(record));
             } catch (IllegalArgumentException e) {
                 throw new IllegalArgumentException(

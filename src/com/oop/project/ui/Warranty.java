@@ -1,5 +1,15 @@
 package com.oop.project.ui;
 
+import com.oop.project.adapter.LegacyWarrantyImportAdapter;
+import com.oop.project.adapter.WarrantyFileImporter;
+import com.oop.project.adapter.WarrantyResult;
+import com.oop.project.model.LegacyWarrantyImport;
+import com.oop.project.model.WarrantyCandidate;
+import com.oop.project.model.WarrantyRecord;
+import com.oop.project.repository.WarrantyRepository;
+import com.oop.project.ui.helpers.RefreshableTableModel;
+import com.oop.project.ui.helpers.WrappedTableCellRenderer;
+import com.oop.project.ui.theme.AppTheme;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.awt.GridLayout;
@@ -12,8 +22,6 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
-import java.util.Locale;
-
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JFileChooser;
@@ -28,23 +36,12 @@ import javax.swing.RowFilter;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableRowSorter;
 
-import com.oop.project.adapter.WarrantyFileImporter;
-import com.oop.project.adapter.WarrantyResult;
-import com.oop.project.adapter.LegacyWarrantyImportAdapter;
-import com.oop.project.model.LegacyWarrantyImport;
-import com.oop.project.model.WarrantyCandidate;
-import com.oop.project.model.WarrantyRecord;
-import com.oop.project.repository.WarrantyRepository;
-import com.oop.project.ui.helpers.RefreshableTableModel;
-import com.oop.project.ui.helpers.WrappedTableCellRenderer;
-import com.oop.project.ui.theme.AppTheme;
-
 public class Warranty extends JPanel {
     private static final String[] WARRANTY_COLUMNS = {
             "Warranty ID", "Repair ID", "Device", "Customer", "Start Date", "End Date", "Status", "Source"
     };
     private static final String[] CANDIDATE_COLUMNS = {
-            "Repair ID", "Device ID", "Device", "Customer", "Received At", "Completed At"
+            "Repair ID", "Serial Number", "Device", "Customer", "Received At", "Completed At"
     };
     private final WarrantyRepository repository;
     private final RefreshableTableModel warrantyModel = new RefreshableTableModel(WARRANTY_COLUMNS, false);
@@ -204,9 +201,10 @@ public class Warranty extends JPanel {
         totalCount.setText("2");
         validCount.setText("1");
         expiredCount.setText("1");
-        candidateModel.addRow(new Object[] { 201, 1, "Dell Inspiron 15", "Nguyen Van An",
+        candidateModel.addRow(new Object[] { 201, "IP13000", "Dell Inspiron 15", "Nguyen Van An",
                 "2026-01-10", "2026-01-15" });
-        candidates = List.of(new WarrantyCandidate(201, 1, "Dell Inspiron 15", "Nguyen Van An",
+        // Sử dụng chuỗi Serial Number thay vì int deviceId ở tham số thứ 2
+        candidates = List.of(new WarrantyCandidate(201, "IP13000", "Dell Inspiron 15", "Nguyen Van An",
                 LocalDate.now().atStartOfDay(), LocalDate.now().atStartOfDay()));
     }
 
@@ -235,7 +233,7 @@ public class Warranty extends JPanel {
         List<Object[]> candidateRows = new ArrayList<>(candidates.size());
         for (WarrantyCandidate candidate : candidates) {
             candidateRows.add(new Object[] {
-                    candidate.getRepairId(), candidate.getDeviceId(), candidate.getDeviceName(),
+                    candidate.getRepairId(), candidate.getSerialNumber(), candidate.getDeviceName(),
                     candidate.getCustomerName(), candidate.getReceivedAt(), candidate.getCompletedAt()
             });
         }
@@ -400,7 +398,7 @@ public class Warranty extends JPanel {
     private void importLegacyRows(Path file, List<WarrantyResult> results) throws IOException {
         byte[] fileBytes = Files.readAllBytes(file);
         String fileHash = sha256(fileBytes);
-        String[] columns = { "Device ID", "Legacy status", "Description", "Start date (yyyy-MM-dd)",
+        String[] columns = { "Serial Number", "Legacy status", "Description", "Start date (yyyy-MM-dd)",
                 "End date (yyyy-MM-dd)" };
         DefaultTableModel importModel = new DefaultTableModel(columns, 0) {
             @Override
@@ -410,7 +408,8 @@ public class Warranty extends JPanel {
         };
         for (WarrantyResult result : results) {
             importModel.addRow(new Object[] {
-                    result.getDeviceId(), result.getWarrantyStatus().name(),
+                    result.getSerialNumber(), result.getWarrantyStatus().name(), // Đổi từ getDeviceId() sang
+                                                                                 // getSerialNumber()
                     result.getDescription(), "", ""
             });
         }

@@ -1,0 +1,3 @@
+IP13000|COVERED|Screen repair
+SN123456|EXPIRED|Battery replacement
+IP13003|NOT_COVERED|Water damage

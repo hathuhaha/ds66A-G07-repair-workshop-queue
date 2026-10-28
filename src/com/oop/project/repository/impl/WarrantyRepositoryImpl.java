@@ -1,21 +1,20 @@
 package com.oop.project.repository.impl;
 
+import com.oop.project.exception.DataAccessException;
+import com.oop.project.model.LegacyWarrantyImport;
+import com.oop.project.model.WarrantyCandidate;
+import com.oop.project.model.WarrantyRecord;
+import com.oop.project.repository.WarrantyRepository;
 import java.sql.Date;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
-
 import javax.sql.DataSource;
-
-import com.oop.project.exception.DataAccessException;
-import com.oop.project.model.LegacyWarrantyImport;
-import com.oop.project.model.WarrantyCandidate;
-import com.oop.project.model.WarrantyRecord;
-import com.oop.project.repository.WarrantyRepository;
 
 public class WarrantyRepositoryImpl extends AbstractJdbcRepository implements WarrantyRepository {
 
@@ -48,6 +47,7 @@ public class WarrantyRepositoryImpl extends AbstractJdbcRepository implements Wa
                 (Integer) rs.getObject("repair_id"),
                 rs.getString("device_name"),
                 rs.getString("customer_name"),
+                null, // Điều chỉnh vị trí trường phụ nếu WarrantyRecord của bạn có 9 tham số
                 rs.getDate("start_date").toLocalDate(),
                 rs.getDate("end_date").toLocalDate(),
                 rs.getString("source"),
@@ -63,7 +63,7 @@ public class WarrantyRepositoryImpl extends AbstractJdbcRepository implements Wa
                 """;
         return queryList("Lấy đơn đủ điều kiện tạo bảo hành", sql, NO_PARAMS, rs -> new WarrantyCandidate(
                 rs.getInt("repair_id"),
-                rs.getInt("device_id"),
+                rs.getString("serial_number"),
                 rs.getString("device_name"),
                 rs.getString("customer_name"),
                 rs.getTimestamp("received_at").toLocalDateTime(),
@@ -94,26 +94,44 @@ public class WarrantyRepositoryImpl extends AbstractJdbcRepository implements Wa
         }
         int[] imported = { 0 };
         inTransaction("Nhập dữ liệu bảo hành cũ", connection -> {
-            String sql = """
+            String findDeviceSql = "SELECT id FROM devices WHERE serial_number = ?";
+            String insertSql = """
                     INSERT INTO warranties (device_id, start_date, end_date, source, legacy_ref, note)
                     VALUES (?, ?, ?, 'LEGACY', ?, ?)
                     ON CONFLICT DO NOTHING
                     """;
-            try (PreparedStatement statement = connection.prepareStatement(sql)) {
+
+            try (PreparedStatement findDeviceStmt = connection.prepareStatement(findDeviceSql);
+                    PreparedStatement insertStmt = connection.prepareStatement(insertSql)) {
+
                 for (LegacyWarrantyImport record : records) {
                     validateDates(record.getStartDate(), record.getEndDate());
-                    statement.setInt(1, record.getDeviceId());
-                    statement.setDate(2, Date.valueOf(record.getStartDate()));
-                    statement.setDate(3, Date.valueOf(record.getEndDate()));
-                    statement.setString(4, record.getLegacyRef());
-                    if (record.getNote() == null) {
-                        statement.setNull(5, Types.VARCHAR);
-                    } else {
-                        statement.setString(5, record.getNote());
+
+                    Integer deviceId = null;
+                    findDeviceStmt.setString(1, record.getSerialNumber());
+                    try (ResultSet rs = findDeviceStmt.executeQuery()) {
+                        if (rs.next()) {
+                            deviceId = rs.getInt("id");
+                        }
                     }
-                    statement.addBatch();
+
+                    if (deviceId == null) {
+                        continue;
+                    }
+
+                    insertStmt.setInt(1, deviceId);
+                    insertStmt.setDate(2, Date.valueOf(record.getStartDate()));
+                    insertStmt.setDate(3, Date.valueOf(record.getEndDate()));
+                    insertStmt.setString(4, record.getLegacyRef());
+                    if (record.getNote() == null) {
+                        insertStmt.setNull(5, Types.VARCHAR);
+                    } else {
+                        insertStmt.setString(5, record.getNote());
+                    }
+                    insertStmt.addBatch();
                 }
-                for (int result : statement.executeBatch()) {
+
+                for (int result : insertStmt.executeBatch()) {
                     if (result == Statement.EXECUTE_FAILED) {
                         throw new SQLException("A legacy warranty record could not be inserted.");
                     }

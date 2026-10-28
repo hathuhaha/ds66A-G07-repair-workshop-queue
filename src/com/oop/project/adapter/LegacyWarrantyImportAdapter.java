@@ -16,6 +16,6 @@ public final class LegacyWarrantyImportAdapter {
             return Optional.empty();
         }
         return Optional.of(new LegacyWarrantyImport(
-                source.getDeviceId(), startDate, endDate, legacyRef, source.getDescription()));
+                source.getSerialNumber(), startDate, endDate, legacyRef, source.getDescription()));
     }
 }
