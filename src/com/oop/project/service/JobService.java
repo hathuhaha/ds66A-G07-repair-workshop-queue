@@ -14,6 +14,8 @@ public interface JobService {
 
     void updateJobStatusWithHistory(int jobId, JobStatus newStatus, String note);
 
+    List<JobStatus> getAvailableNextStatuses(int jobId);
+
     Estimate createEstimate(int jobId, List<Part> parts, List<LaborService> laborServices, String note);
 
     void approveEstimate(int estimateId);

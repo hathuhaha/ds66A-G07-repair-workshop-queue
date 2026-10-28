@@ -481,17 +481,33 @@ public class CustomerDevicePanel extends JPanel {
         }
 
         RepairJob job = jobs.get(jobsTable.convertRowIndexToModel(selectedRow));
-        for (JobStatus status : JobStatus.values()) {
-            if (job.getStatus().canTransitionTo(status)) {
+        List<JobStatus> nextStatuses;
+        try {
+            nextStatuses = context.jobService().getAvailableNextStatuses(job.getId());
+        } catch (RuntimeException exception) {
+            showError("Could not load repair actions", exception);
+            resetStatusControls();
+            return;
+        }
+        for (JobStatus status : nextStatuses) {
                 nextStatusCombo.addItem(status);
-            }
         }
         boolean canUpdate = nextStatusCombo.getItemCount() > 0;
         nextStatusCombo.setEnabled(canUpdate);
         statusNoteField.setEnabled(canUpdate);
         updateStatusButton.setEnabled(canUpdate);
-        if (!canUpdate) {
-            statusNoteField.setText("This repair is already closed.");
+        if (canUpdate) {
+            JobStatus nextStatus = (JobStatus) nextStatusCombo.getSelectedItem();
+            updateStatusButton.setText("Update to " + nextStatus.getDisplayName());
+        } else {
+            updateStatusButton.setText("Update status");
+            if (job.getStatus() == JobStatus.DIAGNOSING) {
+                statusNoteField.setText("Create a draft estimate before sending it for approval.");
+            } else if (job.getStatus() == JobStatus.WAITING_FOR_APPROVAL) {
+                statusNoteField.setText("Approve or reject the estimate in the Estimate tab.");
+            } else if (job.getStatus() == JobStatus.CLOSED) {
+                statusNoteField.setText("This repair is already closed.");
+            }
         }
     }
 
@@ -501,6 +517,7 @@ public class CustomerDevicePanel extends JPanel {
         statusNoteField.setText("");
         statusNoteField.setEnabled(false);
         updateStatusButton.setEnabled(false);
+        updateStatusButton.setText("Update status");
     }
 
     private void updateSelectedRepairStatus() {

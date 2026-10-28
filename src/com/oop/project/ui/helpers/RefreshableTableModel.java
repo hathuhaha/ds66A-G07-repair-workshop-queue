@@ -21,6 +21,7 @@ public class RefreshableTableModel extends DefaultTableModel {
 
     public void replaceRows(List<Object[]> rows) {
         Objects.requireNonNull(rows, "rows");
+        @SuppressWarnings("rawtypes")
         Vector<Vector> replacement = new Vector<>(rows.size());
         for (Object[] row : rows) {
             if (row == null || row.length != getColumnCount()) {

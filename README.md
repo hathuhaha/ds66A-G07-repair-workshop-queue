@@ -4,6 +4,9 @@
 bảo hành và lịch sử trạng thái. Project được biên dịch trực tiếp bằng `javac`,
 không yêu cầu Maven.
 
+Xem [WORKINGFLOW.md](./WORKINGFLOW.md) để theo dõi luồng khởi động và các thao
+tác trên từng tab của ứng dụng.
+
 ## Cấu trúc project
 
 ```text

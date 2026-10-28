@@ -57,7 +57,7 @@ public class WarrantyRepositoryImpl extends AbstractJdbcRepository implements Wa
     @Override
     public List<WarrantyCandidate> findCandidates() {
         String sql = """
-                SELECT repair_id, serial_number, device_name, customer_name, received_at, completed_at
+                SELECT repair_id, device_id, device_name, customer_name, received_at, completed_at
                 FROM v_warranty_candidates
                 ORDER BY completed_at DESC NULLS LAST, repair_id DESC
                 """;

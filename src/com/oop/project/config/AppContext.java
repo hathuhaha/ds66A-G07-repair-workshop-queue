@@ -39,8 +39,7 @@ public final class AppContext {
         this.estimateRepository = new EstimateRepositoryImpl(dataSource);
         this.statusHistoryRepository = new StatusHistoryRepositoryImpl(dataSource);
         this.warrantyRepository = new WarrantyRepositoryImpl(dataSource);
-        this.jobService = new JobServiceImpl(deviceRepository, repairJobRepository, estimateRepository,
-                statusHistoryRepository);
+        this.jobService = new JobServiceImpl(deviceRepository, repairJobRepository, estimateRepository);
     }
 
     /** Context for the real application database (.env or environment variables). */
