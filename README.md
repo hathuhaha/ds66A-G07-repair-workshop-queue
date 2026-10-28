@@ -11,31 +11,61 @@ không yêu cầu Maven.
 ├── database/                         # SQL dùng để khởi tạo database local
 │   ├── schema.sql
 │   └── seed_data.sql
+├── config.md                         # Hướng dẫn cài PostgreSQL, cấu hình và chạy app
 ├── docs/                             # Tài liệu yêu cầu và thiết kế
-├── lib/                              # PostgreSQL JDBC driver
+├── lib/                              # PostgreSQL JDBC driver (cần tải riêng)
 ├── src/
 │   ├── com/oop/project/              # Java source root
-│   │   ├── Main.java                 # Entry point, mở giao diện Home
 │   │   ├── adapter/                  # Chuyển đổi/import dữ liệu legacy
 │   │   ├── config/                   # Kết nối database và AppContext
 │   │   ├── exception/                # Exception nghiệp vụ và truy cập dữ liệu
 │   │   ├── model/                    # Entity và domain model
 │   │   ├── repository/               # Repository interfaces, JDBC implementations,
 │   │   │                              # row mappers
+│   │   ├── sample_data/              # Dữ liệu mẫu
 │   │   ├── service/                  # Nghiệp vụ repair job và estimate
 │   │   ├── ui/                       # Swing screens, helpers và theme
-│   │   ├── sample_data/              # Dữ liệu mẫu
+│   │   │   └── Home.java             # Entry point, mở giao diện chính
 │   │   └── util/                     # Tiện ích dùng chung
 │   └── main/resources/db/            # Bản schema và seed được đóng cùng resources
 │       ├── schema.sql
 │       └── seed_data.sql
 ├── .env                              # Cấu hình database local (không commit)
-└── README.md
+├── README.md
+└── config.md
 ```
 
 `src/com/oop/project` là source root Java hiện tại; `src/main/resources/db` giữ
 các script SQL ở vị trí resources. Hai bộ script trong `database/` và
 `src/main/resources/db/` hiện có cùng nội dung.
+
+## Tra cứu file (file dictionary)
+
+| File/thư mục | Chức năng |
+|---|---|
+| `src/com/oop/project/ui/Home.java` | Entry point giao diện; tạo các tab Customers/Devices, Repair Queue, Estimate, Warranty và Job History. Chạy file này để mở ứng dụng. |
+| `src/com/oop/project/ui/CustomerDevicePanel.java` | Giao diện quản lý khách hàng, thiết bị và lịch sử repair của khách hàng. |
+| `src/com/oop/project/ui/RepairQueue.java` | Danh sách repair queue và thao tác cập nhật trạng thái repair. |
+| `src/com/oop/project/ui/Estimate.java` | Tìm repair, lập các phiên bản estimate, quản lý parts/labor và duyệt hoặc từ chối estimate. |
+| `src/com/oop/project/ui/Warranty.java` | Tìm/xem warranty, chọn repair đủ điều kiện và import warranty legacy. |
+| `src/com/oop/project/ui/JobHistory.java` | Tìm và xem lịch sử thay đổi trạng thái repair. |
+| `src/com/oop/project/ui/MainFrame.java` | Frame giao diện Swing dùng chung. |
+| `src/com/oop/project/ui/helpers/` | Renderer, editor cho nút trong bảng, table model có thể refresh và hiển thị nội dung nhiều dòng. |
+| `src/com/oop/project/ui/theme/AppTheme.java` | Theme và style dùng chung cho giao diện Swing. |
+| `src/com/oop/project/config/DatabaseConnection.java` | Đọc cấu hình PostgreSQL từ environment hoặc `.env` và tạo datasource. |
+| `src/com/oop/project/config/AppContext.java` | Khởi tạo, kết nối các repository và service được dùng trong ứng dụng. |
+| `src/com/oop/project/model/` | Các entity/domain model như Customer, Device, RepairJob, Estimate, Part, LaborService, Warranty và status. |
+| `src/com/oop/project/repository/` | Hợp đồng truy cập dữ liệu, các JDBC implementation và row mapper cho PostgreSQL. |
+| `src/com/oop/project/service/JobService.java` và `JobServiceImpl.java` | Quy tắc nghiệp vụ cho repair job, cập nhật trạng thái và estimate. |
+| `src/com/oop/project/adapter/WarrantyFileImporter.java` | Đọc file warranty legacy theo định dạng `deviceId|STATUS|description`, xác thực từng dòng và báo số dòng lỗi. |
+| `src/com/oop/project/adapter/WarrantyAdapter.java` và `WarrantyResult.java` | Chuyển bản ghi legacy sang dạng kết quả thống nhất dùng trong màn review import. |
+| `src/com/oop/project/adapter/LegacyWarrantyImportAdapter.java` | Chuyển warranty legacy đủ điều kiện thành domain import; bỏ qua trạng thái `NOT_COVERED`. |
+| `src/com/oop/project/adapter/` | Adapter và model dữ liệu tương thích cho luồng warranty legacy. |
+| `src/com/oop/project/exception/` | Các exception về nghiệp vụ, trạng thái và truy cập dữ liệu. |
+| `database/schema.sql` | Tạo lại schema PostgreSQL cho môi trường local/dev/test. |
+| `database/seed_data.sql` | Xóa dữ liệu hiện có và nạp bộ dữ liệu mẫu sau khi tạo schema. |
+| `src/main/resources/db/` | Bản sao các SQL script để đóng gói cùng resources. |
+| `config.md` | Hướng dẫn cài PostgreSQL/JDBC driver, tạo database, cấu hình kết nối, biên dịch và chạy ứng dụng. |
 
 ## Những chức năng đã triển khai
 
@@ -44,9 +74,11 @@ các script SQL ở vị trí resources. Hai bộ script trong `database/` và
 - **Repair status**: cập nhật trạng thái từ Repair Queue hoặc lịch sử repair
   trong màn Customer; kiểm tra transition qua service và lưu status history.
 - **Repair Queue**: lọc danh sách và xem trạng thái/hạn dự kiến của các repair.
-- **Estimate**: chọn repair job, nhập parts và labor, xem tổng tiền, lưu/tải
-  estimate, duyệt hoặc từ chối estimate. Trường nhập kiểm tra định dạng và range
-  trước khi lưu.
+- **Estimate**: tìm repair job theo mã, thiết bị, khách hàng hoặc mô tả; khi
+  chọn repair, tự tải estimate mới nhất và cho phép xem các phiên bản đã lưu.
+  Nhập Parts/Labor theo tab riêng, theo dõi tổng tiền, rồi lưu thành phiên bản
+  draft mới hoặc duyệt/từ chối draft mới nhất. Trường nhập kiểm tra định dạng
+  và range trước khi lưu.
 - **Warranty**: xem/tìm kiếm warranties và repairs đủ điều kiện; tạo warranty
   từ repair được chọn; import dữ liệu legacy. Repair đã có warranty không còn là
   candidate để tạo thêm warranty.
@@ -212,39 +244,11 @@ Trước khi nộp, nhóm phải tự kiểm tra:
 - Giảng viên sẽ đánh giá dựa trên code, lịch sử commit và khả năng giải thích khi bảo vệ project.  
 - Các vấn đề phát sinh do không đọc kỹ README sẽ không được giải quyết ngoại lệ.
 
-## Cấu hình database
+## Cài đặt, cấu hình và chạy
 
-Tạo database PostgreSQL `repair-workshop-queue`. Chạy script theo thứ tự:
-
-1. `src/main/resources/db/schema.sql` (hoặc bản tương ứng trong `database/`).
-2. `src/main/resources/db/seed_data.sql` (hoặc bản tương ứng trong `database/`).
-
-**Lưu ý:** các script tạo lại schema và dữ liệu mẫu, có thể xóa dữ liệu đang có.
-Chỉ chạy trên database mới/dev/test, không chạy trên database có dữ liệu cần giữ.
-
-## Chạy ứng dụng (không dùng Maven)
-
-Tạo file `.env` tại thư mục gốc:
-
-```text
-DB_URL=jdbc:postgresql://localhost:5432/repair-workshop-queue
-DB_USERNAME=your_postgresql_username
-DB_PASSWORD=your_postgresql_password
-```
-
-Đặt PostgreSQL JDBC driver trong `lib`, rồi biên dịch và chạy từ PowerShell:
-
-```powershell
-Get-ChildItem .\src -Recurse -Filter *.java |
-    ForEach-Object { $_.FullName } |
-    Set-Content -Encoding ASCII .\sources.txt
-
-javac -encoding UTF-8 -cp ".\lib\*" -d ".\out" "@sources.txt"
-java -cp ".\out;.\lib\*" com.oop.project.Main
-```
-
-Các biến `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` cũng có thể được đặt trong
-environment thay cho file `.env`. PostgreSQL JDBC driver cần có trong `lib/`.
+Xem [config.md](./config.md) để cài PostgreSQL JDBC driver, tạo database từ SQL,
+cấu hình thông tin kết nối, biên dịch toàn bộ source bằng `javac` và chạy giao
+diện `Home`.
 
 File legacy bảo hành có một bản ghi mỗi dòng, theo định dạng
 `deviceId|COVERED|description`, `deviceId|EXPIRED|description` hoặc

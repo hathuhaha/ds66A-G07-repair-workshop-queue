@@ -38,6 +38,17 @@ public class RepairQueue extends JPanel {
     private RepairJobRepository repository;
     private JobService jobService;
     private Runnable afterJobUpdate = () -> { };
+    private final JTextField generalSearchField = new JTextField(30);
+    private final JComboBox<String> statusFilterCombo = new JComboBox<>(
+            new String[] { "All", "Pending", "In Progress", "Completed" });
+    private final JTextField deviceSearchField = new JTextField(30);
+    private final JTextField customerSearchField = new JTextField(30);
+    private final JTextField symptomsSearchField = new JTextField(30);
+    private final JComboBox<String> sortComboBox = new JComboBox<>(
+            new String[] { "Newest to Oldest", "Oldest to Newest" });
+    private final JComboBox<JobStatus> nextStatusComboBox = new JComboBox<>();
+    private final JTextField statusNoteField = new JTextField(18);
+    private final JButton updateStatusButton = new JButton("Update selected repair");
     private String currentGeneralSearch = "";
     private String currentStatus = "All";
     private String currentDeviceSearch = "";
@@ -195,66 +206,48 @@ public class RepairQueue extends JPanel {
     private void createFilter() {
         this.filter = new JPanel();
         this.filter.setLayout(new BoxLayout(this.filter, BoxLayout.Y_AXIS));
-        this.filter.setBorder(BorderFactory.createTitledBorder("🔎"));
+        this.filter.setBorder(BorderFactory.createTitledBorder("Repair search and status update"));
 
         JPanel filterPanel = new JPanel();
         filterPanel.setLayout(new BoxLayout(filterPanel, BoxLayout.Y_AXIS));
 
-        // create general search and add to filterPanel
         JPanel searchGeneral = new JPanel();
         searchGeneral.setLayout(new FlowLayout(FlowLayout.LEFT));
         JLabel searchGeneralLabel = new JLabel("Search:");
-        JTextField searchGeneralField = new JTextField(30);
         searchGeneral.add(searchGeneralLabel);
-        searchGeneral.add(searchGeneralField);
+        searchGeneral.add(generalSearchField);
         filterPanel.add(searchGeneral);
-
-        // create search status and add to filterPanel
-        String statusOption[] = { "All", "Pending", "In Progress", "Completed" };
-        JComboBox<String> statusComboBox = new JComboBox<>(statusOption);
-        statusComboBox.setSelectedIndex(0);
 
         JPanel searchStatus = new JPanel();
         searchStatus.setLayout(new FlowLayout(FlowLayout.LEFT));
-        JLabel searchStatusLabel = new JLabel("Status:");
-        searchStatus.add(searchStatusLabel);
-        searchStatus.add(statusComboBox);
+        searchStatus.add(new JLabel("Status group:"));
+        searchStatus.add(statusFilterCombo);
         filterPanel.add(searchStatus);
 
-        // create search device and add to filterPanel
         JPanel searchDevice = new JPanel();
         searchDevice.setLayout(new FlowLayout(FlowLayout.LEFT));
         JLabel searchDeviceLabel = new JLabel("Device:");
-        JTextField searchDeviceField = new JTextField(30);
         searchDevice.add(searchDeviceLabel);
-        searchDevice.add(searchDeviceField);
+        searchDevice.add(deviceSearchField);
         filterPanel.add(searchDevice);
 
-        // create search customer and add to filterPanel
         JPanel searchCustomer = new JPanel();
         searchCustomer.setLayout(new FlowLayout(FlowLayout.LEFT));
         JLabel searchCustomerLabel = new JLabel("Customer:");
-        JTextField searchCustomerField = new JTextField(30);
         searchCustomer.add(searchCustomerLabel);
-        searchCustomer.add(searchCustomerField);
+        searchCustomer.add(customerSearchField);
         filterPanel.add(searchCustomer);
 
-        // create search symptoms and add to filterPanel
         JPanel searchSymptoms = new JPanel();
         searchSymptoms.setLayout(new FlowLayout(FlowLayout.LEFT));
         JLabel searchSymptomsLabel = new JLabel("Symptoms:");
-        JTextField searchSymptomsField = new JTextField(30);
         searchSymptoms.add(searchSymptomsLabel);
-        searchSymptoms.add(searchSymptomsField);
+        searchSymptoms.add(symptomsSearchField);
         filterPanel.add(searchSymptoms);
 
-        // create sort by date mode
-
-        String sortOption[] = { "Newest to Oldest", "Oldest to Newest" };
-        JComboBox<String> sortComboBox = new JComboBox<>(sortOption);
         JPanel sortByDate = new JPanel();
         sortByDate.setLayout(new FlowLayout(FlowLayout.LEFT));
-        JLabel sortByDateLabel = new JLabel("Displaying Order");
+        JLabel sortByDateLabel = new JLabel("Received date:");
         sortByDate.add(sortByDateLabel);
         sortByDate.add(sortComboBox);
         filterPanel.add(sortByDate);
@@ -262,37 +255,59 @@ public class RepairQueue extends JPanel {
             SortOrder order = sortComboBox.getSelectedIndex() == 0
                     ? SortOrder.DESCENDING
                     : SortOrder.ASCENDING;
-            filteredTableSorter.setSortKeys(
-                    List.of(new RowSorter.SortKey(4, order)));
+            if (filteredTableSorter != null) {
+                filteredTableSorter.setSortKeys(List.of(new RowSorter.SortKey(4, order)));
+            }
         });
 
-        // create search button and add to filterPanel
         JPanel searchButtonPanel = new JPanel();
         searchButtonPanel.setLayout(new FlowLayout(FlowLayout.LEFT));
-        JButton searchButton = new JButton("🔎︎");
+        JButton searchButton = new JButton("Search");
+        JButton resetButton = new JButton("Reset filters");
         searchButtonPanel.add(searchButton);
+        searchButtonPanel.add(resetButton);
         filterPanel.add(searchButtonPanel);
         searchButton.addActionListener(event -> applyFilters(
-                searchGeneralField.getText(),
-                (String) statusComboBox.getSelectedItem(),
-                searchDeviceField.getText(),
-                searchCustomerField.getText(),
-                searchSymptomsField.getText()));
+                generalSearchField.getText(),
+                (String) statusFilterCombo.getSelectedItem(),
+                deviceSearchField.getText(),
+                customerSearchField.getText(),
+                symptomsSearchField.getText()));
+        for (JTextField searchField : List.of(
+                generalSearchField, deviceSearchField, customerSearchField, symptomsSearchField)) {
+            searchField.addActionListener(event -> searchButton.doClick());
+        }
+        resetButton.addActionListener(event -> {
+            generalSearchField.setText("");
+            statusFilterCombo.setSelectedIndex(0);
+            deviceSearchField.setText("");
+            customerSearchField.setText("");
+            symptomsSearchField.setText("");
+            applyFilters("", "All", "", "", "");
+        });
 
         JPanel updatePanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        JComboBox<JobStatus> nextStatus = new JComboBox<>(JobStatus.values());
-        JTextField statusNote = new JTextField(18);
-        JButton updateStatusButton = new JButton("Update selected repair");
-        updatePanel.add(new JLabel("New status:"));
-        updatePanel.add(nextStatus);
+        updatePanel.setBorder(BorderFactory.createTitledBorder("Update a repair from the filtered list"));
+        nextStatusComboBox.setEnabled(false);
+        nextStatusComboBox.setRenderer(new DefaultListCellRenderer() {
+            @Override
+            public Component getListCellRendererComponent(
+                    JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+                super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                setText(value instanceof JobStatus ? ((JobStatus) value).getDisplayName() : "");
+                return this;
+            }
+        });
+        updateStatusButton.setEnabled(false);
+        updatePanel.add(new JLabel("Next status:"));
+        updatePanel.add(nextStatusComboBox);
         updatePanel.add(new JLabel("Note:"));
-        updatePanel.add(statusNote);
+        updatePanel.add(statusNoteField);
         updatePanel.add(updateStatusButton);
         updateStatusButton.addActionListener(event -> updateSelectedJob(
-                nextStatus.getItemAt(nextStatus.getSelectedIndex()), statusNote.getText()));
+                (JobStatus) nextStatusComboBox.getSelectedItem(), statusNoteField.getText()));
         filterPanel.add(updatePanel);
 
-        // create FilterTable() and add to JPanel Filter
         createFilteredTable();
         this.filteredTable.setPreferredScrollableViewportSize(new Dimension(600, 350));
         JScrollPane filteredScrollPane = new JScrollPane(this.filteredTable);
@@ -330,7 +345,9 @@ public class RepairQueue extends JPanel {
                 matchingRows.add(row);
             }
         }
+        filteredTable.clearSelection();
         filteredTableModel.replaceRows(matchingRows);
+        updateStatusChoices();
     }
 
     public void refresh() {
@@ -345,19 +362,25 @@ public class RepairQueue extends JPanel {
     }
 
     private void updateSelectedJob(JobStatus status, String note) {
-        int selected = table.getSelectedRow();
+        int selected = filteredTable.getSelectedRow();
         if (jobService == null) {
             JOptionPane.showMessageDialog(this, "Database mode is required to update repair status.");
             return;
         }
-        if (selected < 0) {
+        if (selected < 0 || selected >= filteredTable.getRowCount()) {
             JOptionPane.showMessageDialog(this, "Select a repair request first.");
             return;
         }
         try {
-            int row = table.convertRowIndexToModel(selected);
-            int jobId = Integer.parseInt(table.getModel().getValueAt(row, 0).toString());
+            if (status == null) {
+                JOptionPane.showMessageDialog(this, "Select a valid next status.");
+                return;
+            }
+            int row = filteredTable.convertRowIndexToModel(selected);
+            int jobId = Integer.parseInt(filteredTableModel.getValueAt(row, 0).toString());
             jobService.updateJobStatusWithHistory(jobId, status, note);
+            statusNoteField.setText("");
+            filteredTable.clearSelection();
             refresh();
             afterJobUpdate.run();
         } catch (RuntimeException exception) {
@@ -413,6 +436,39 @@ public class RepairQueue extends JPanel {
                 List.of(new RowSorter.SortKey(4, SortOrder.DESCENDING)));
         filteredTable.setRowSorter(filteredTableSorter);
         WrappedTableCellRenderer.install(filteredTable);
+        filteredTable.getSelectionModel().addListSelectionListener(event -> {
+            if (!event.getValueIsAdjusting()) {
+                updateStatusChoices();
+            }
+        });
+    }
+
+    private void updateStatusChoices() {
+        nextStatusComboBox.removeAllItems();
+        int selected = filteredTable.getSelectedRow();
+        if (selected < 0 || selected >= filteredTable.getRowCount() || jobService == null) {
+            nextStatusComboBox.setEnabled(false);
+            statusNoteField.setEnabled(false);
+            updateStatusButton.setEnabled(false);
+            return;
+        }
+
+        int modelRow = filteredTable.convertRowIndexToModel(selected);
+        String currentStatusName = String.valueOf(filteredTableModel.getValueAt(modelRow, 3));
+        JobStatus currentStatus = java.util.Arrays.stream(JobStatus.values())
+                .filter(status -> status.getDisplayName().equals(currentStatusName))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException(
+                        "Unknown repair status in filtered queue: " + currentStatusName));
+        for (JobStatus status : JobStatus.values()) {
+            if (currentStatus.canTransitionTo(status)) {
+                nextStatusComboBox.addItem(status);
+            }
+        }
+        boolean hasNextStatus = nextStatusComboBox.getItemCount() > 0;
+        nextStatusComboBox.setEnabled(hasNextStatus);
+        statusNoteField.setEnabled(hasNextStatus);
+        updateStatusButton.setEnabled(hasNextStatus);
     }
 
     private static RefreshableTableModel createReadOnlyTableModel(List<Object[]> rows) {

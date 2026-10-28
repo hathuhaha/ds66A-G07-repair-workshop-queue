@@ -89,12 +89,12 @@ public class JobHistory extends JPanel {
                 return column == 5 ? LocalDateTime.class : Object.class;
             }
         };
-        sorter = new TableRowSorter<>(tableModel);
         if (repository != null) {
             loadRows(repository.findAll());
         } else if ("test".equalsIgnoreCase(typeOfPanel)) {
             addSampleRows();
         }
+        sorter = new TableRowSorter<>(tableModel);
 
         JTable table = new JTable(tableModel);
         AppTheme.styleTable(table);
@@ -203,18 +203,15 @@ public class JobHistory extends JPanel {
     }
 
     private void addSampleRows() {
-        tableModel.addRow(new Object[] {
-                1, 101, "-", "RECEIVED", "Repair request received", LocalDateTime.of(2026, 10, 20, 9, 15)
-        });
-        tableModel.addRow(new Object[] {
-                2, 101, "RECEIVED", "DIAGNOSING", "Technician started diagnosis", LocalDateTime.of(2026, 10, 20, 10, 0)
-        });
-        tableModel.addRow(new Object[] {
-                3, 102, "DIAGNOSING", "WAITING_FOR_APPROVAL", "Estimate sent to customer", LocalDateTime.of(2026, 10, 20, 11, 30)
-        });
-        tableModel.addRow(new Object[] {
-                4, 103, "REPAIRING", "READY", "Repair completed; ready for pickup", LocalDateTime.of(2026, 10, 21, 16, 45)
-        });
+        tableModel.replaceRows(List.of(
+                new Object[] { 1, 101, "-", "RECEIVED", "Repair request received",
+                        LocalDateTime.of(2026, 10, 20, 9, 15) },
+                new Object[] { 2, 101, "RECEIVED", "DIAGNOSING", "Technician started diagnosis",
+                        LocalDateTime.of(2026, 10, 20, 10, 0) },
+                new Object[] { 3, 102, "DIAGNOSING", "WAITING_FOR_APPROVAL", "Estimate sent to customer",
+                        LocalDateTime.of(2026, 10, 20, 11, 30) },
+                new Object[] { 4, 103, "REPAIRING", "READY", "Repair completed; ready for pickup",
+                        LocalDateTime.of(2026, 10, 21, 16, 45) }));
     }
 
     private void applyFilters(boolean showValidationErrors) {

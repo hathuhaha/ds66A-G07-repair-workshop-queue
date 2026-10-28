@@ -30,6 +30,7 @@ import javax.swing.table.TableRowSorter;
 
 import com.oop.project.adapter.WarrantyFileImporter;
 import com.oop.project.adapter.WarrantyResult;
+import com.oop.project.adapter.LegacyWarrantyImportAdapter;
 import com.oop.project.model.LegacyWarrantyImport;
 import com.oop.project.model.WarrantyCandidate;
 import com.oop.project.model.WarrantyRecord;
@@ -449,6 +450,7 @@ public class Warranty extends JPanel {
 
         List<LegacyWarrantyImport> imports = new ArrayList<>();
         int notCoveredSkipped = 0;
+        LegacyWarrantyImportAdapter importAdapter = new LegacyWarrantyImportAdapter();
         for (int row = 0; row < importModel.getRowCount(); row++) {
             WarrantyResult result = results.get(row);
             if (result.getWarrantyStatus() == com.oop.project.model.WarrantyStatus.NOT_COVERED) {
@@ -457,8 +459,8 @@ public class Warranty extends JPanel {
             }
             LocalDate start = LocalDate.parse(String.valueOf(importModel.getValueAt(row, 3)).trim());
             LocalDate end = LocalDate.parse(String.valueOf(importModel.getValueAt(row, 4)).trim());
-            imports.add(new LegacyWarrantyImport(
-                    result.getDeviceId(), start, end, fileHash + "-" + (row + 1), result.getDescription()));
+            importAdapter.adapt(result, start, end, fileHash + "-" + (row + 1))
+                    .ifPresent(imports::add);
         }
 
         try {

@@ -1,0 +1,79 @@
+# Cấu hình PostgreSQL và chạy ứng dụng
+
+Hướng dẫn này dành cho Windows PowerShell. Ứng dụng biên dịch trực tiếp bằng
+`javac`, không cần Maven.
+
+## 1. Cài PostgreSQL
+
+Tải PostgreSQL cho Windows từ [trang tải chính thức](https://www.postgresql.org/download/windows/)
+và cài đặt. Ghi nhớ username và password của PostgreSQL (thường username là
+`postgres` nếu không đổi trong quá trình cài đặt).
+
+## 2. Tải PostgreSQL JDBC driver
+
+Tải phiên bản **42.7.14** của PostgreSQL JDBC driver:
+
+[postgresql-42.7.14.jar (Maven Central)](https://repo.maven.apache.org/maven2/org/postgresql/postgresql/42.7.14/postgresql-42.7.14.jar)
+
+Chép file `postgresql-42.7.14.jar` vào thư mục `lib` ở thư mục gốc project. Sau
+khi chép, đường dẫn cần có là:
+
+```text
+lib\postgresql-42.7.14.jar
+```
+
+## 3. Tạo database và nạp schema/dữ liệu mẫu
+
+Tạo database PostgreSQL tên `repair-workshop-queue` bằng pgAdmin (Create >
+Database), hoặc mở PowerShell và chạy:
+
+```powershell
+createdb -U postgres repair-workshop-queue
+```
+
+Thay `postgres` bằng username PostgreSQL của bạn nếu cần. Nếu lệnh
+`createdb` không được nhận diện, dùng pgAdmin để tạo database hoặc thêm thư mục
+`bin` của PostgreSQL vào `PATH`.
+
+Chạy hai file SQL từ thư mục gốc project, đúng thứ tự:
+
+```powershell
+psql -U postgres -d repair-workshop-queue -f .\database\schema.sql
+psql -U postgres -d repair-workshop-queue -f .\database\seed_data.sql
+```
+
+Nhập password PostgreSQL nếu được hỏi. Có thể chạy các file tương ứng trong
+`src\main\resources\db` thay cho `database`, nhưng chỉ chạy **một bộ** script.
+Không chạy lại `schema.sql` hoặc `seed_data.sql` trên database có dữ liệu cần
+giữ: `schema.sql` xóa và tạo lại các bảng, còn `seed_data.sql` xóa dữ liệu rồi
+nạp dữ liệu mẫu.
+
+## 4. Cấu hình kết nối
+
+Tạo hoặc cập nhật file `.env` tại thư mục gốc project:
+
+```text
+DB_URL=jdbc:postgresql://localhost:5432/repair-workshop-queue
+DB_USERNAME=postgres
+DB_PASSWORD=your_postgresql_password
+```
+
+Thay username/password mẫu bằng thông tin của PostgreSQL trên máy bạn. Không
+đưa mật khẩu thật lên Git. Có thể đặt `DB_URL`, `DB_USERNAME` và `DB_PASSWORD`
+thành environment variables thay cho `.env`; giá trị environment được ưu tiên
+nếu đồng thời có trong `.env`.
+
+## 5. Biên dịch và chạy giao diện Home
+
+Mở PowerShell tại thư mục gốc project rồi chạy:
+
+```powershell
+$files = Get-ChildItem .\src -Recurse -Filter *.java |
+    ForEach-Object { $_.FullName }
+
+javac -encoding UTF-8 -cp ".\lib\*" -d ".\out" $files
+java -cp ".\out;.\lib\*" com.oop.project.ui.Home
+```
+
+Lệnh đầu tiên biên dịch toàn bộ file Java trong `src` vào thư mục `out`. Lệnh
+thứ hai mở giao diện chính của ứng dụng.
