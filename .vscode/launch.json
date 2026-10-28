@@ -1,0 +1,12 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Run RepairQueue",
+            "request": "launch",
+            "mainClass": "com.oop.project.ui.RepairQueue",
+            "projectName": "ds66A-G07-repair-workshop-queue"
+        }
+    ]
+}

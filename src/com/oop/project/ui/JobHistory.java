@@ -12,5 +12,5 @@ import java.util.List;
 import java.util.concurrent.Flow;
 
 public class JobHistory extends JPanel {
-
+    
 }
