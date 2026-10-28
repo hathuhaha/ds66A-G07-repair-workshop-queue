@@ -1,13 +1,9 @@
 package com.oop.project;
 
-import com.oop.project.ui.MainFrame;
-import javax.swing.SwingUtilities;
+import com.oop.project.ui.Home;
 
 public class Main {
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            MainFrame frame = new MainFrame();
-            frame.setVisible(true);
-        });
+        Home.main(args);
     }
 }

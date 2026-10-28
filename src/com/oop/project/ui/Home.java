@@ -1,9 +1,13 @@
 package com.oop.project.ui;
 
 import javax.swing.*;
-import java.awt.*;
+import com.oop.project.ui.theme.AppTheme;
 
 public class Home extends JFrame {
+    static {
+        AppTheme.setup();
+    }
+
     public Home() {
         setTitle("G07 - Repair Workshop Queue");
         setSize(900, 600);
@@ -12,15 +16,17 @@ public class Home extends JFrame {
 
         // Mỗi tab là một JPanel
         JPanel customersPanel = new JPanel();
-        JPanel queuePanel     = new RepairQueue();
-        JPanel estimatePanel  = new JPanel();
-        JPanel warrantyPanel  = new JPanel();
-        JPanel historyPanel   = new JPanel();
+        AppTheme.styleContentPanel(customersPanel);
+        JPanel queuePanel = new RepairQueue();
+        JPanel estimatePanel = new JPanel();
+        JPanel warrantyPanel = new JPanel();
+        JPanel historyPanel = new JPanel();
 
         // Thêm nội dung vào từng panel
         customersPanel.add(new JLabel("Tên:"));
         customersPanel.add(new JTextField(15));
-        customersPanel.add(new JButton("Add"));
+        JButton addButton = new JButton("Add");
+        customersPanel.add(addButton);
 
         queuePanel.add(new JLabel("Danh sách job"));
         estimatePanel.add(new JLabel("Báo giá"));
@@ -29,12 +35,20 @@ public class Home extends JFrame {
 
         JTabbedPane tabs = new JTabbedPane();
         tabs.addTab("Customers/Devices", customersPanel);
-        tabs.addTab("Repair Queue",      queuePanel);
-        tabs.addTab("Estimate",          estimatePanel);
-        tabs.addTab("Warranty",          warrantyPanel);
-        tabs.addTab("Job History",       historyPanel);
+        tabs.addTab("Repair Queue", queuePanel);
+        tabs.addTab("Estimate", estimatePanel);
+        tabs.addTab("Warranty", warrantyPanel);
+        tabs.addTab("Job History", historyPanel);
 
         add(tabs);
+        AppTheme.applyTo(getContentPane());
+        AppTheme.stylePrimaryButton(addButton);
     }
-    
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> {
+            Home frame = new Home();
+            frame.setVisible(true);
+        });
+    }
 }

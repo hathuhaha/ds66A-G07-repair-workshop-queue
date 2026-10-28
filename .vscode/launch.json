@@ -3,9 +3,9 @@
     "configurations": [
         {
             "type": "java",
-            "name": "Run RepairQueue",
+            "name": "Run Workshop App",
             "request": "launch",
-            "mainClass": "com.oop.project.ui.RepairQueue",
+            "mainClass": "com.oop.project.Main",
             "projectName": "ds66A-G07-repair-workshop-queue"
         }
     ]
