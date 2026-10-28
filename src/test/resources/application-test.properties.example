@@ -1,0 +1,6 @@
+# Copy this file to application-test.properties (same folder) and fill in your own settings.
+# Tests DROP and recreate all tables, so this MUST point to the repair_shop_test database.
+db.url=jdbc:postgresql://localhost:5432/repair_shop_test
+db.user=postgres
+db.password=your_password_here
+db.pool.size=3

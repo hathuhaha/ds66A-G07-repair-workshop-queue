@@ -27,3 +27,13 @@ sources.txt
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 replay_pid*
+
+# Maven build target directory
+/target/
+src/main/resources/application.properties
+src/test/resources/application-test.properties
+
+# IDE files
+.vscode/
+.idea/
+*.iml
