@@ -32,6 +32,7 @@ import java.util.List;
 
 import com.oop.project.config.AppContext;
 import com.oop.project.model.LaborService;
+import com.oop.project.model.JobStatus;
 import com.oop.project.model.Part;
 import com.oop.project.model.RepairJob;
 import com.oop.project.ui.helpers.RefreshableTableModel;
@@ -57,8 +58,11 @@ public class Estimate extends JPanel {
     private final Runnable afterEstimateStatusChange;
     private final JButton approveButton = new JButton("Approve latest");
     private final JButton rejectButton = new JButton("Reject latest");
+    private final JButton saveDraftButton = new JButton("Save as new draft version");
+    private final List<JButton> lineItemActionButtons = new ArrayList<>();
     private int activeEstimateId;
     private int selectedJobId;
+    private JobStatus selectedJobStatus;
     private boolean changingVersionSelection;
     private boolean calculatingTotal;
     private boolean loadingEstimateData;
@@ -147,6 +151,7 @@ public class Estimate extends JPanel {
                 }
             }
         });
+        updateWorkflowButtons(false);
         updateTotal(null);
     }
 
@@ -238,18 +243,22 @@ public class Estimate extends JPanel {
         AppTheme.styleTable(laborTable);
 
         JButton addPartButton = new JButton("Add part");
+        lineItemActionButtons.add(addPartButton);
         AppTheme.stylePrimaryButton(addPartButton);
         addPartButton.addActionListener(event -> partsModel.addRow(new Object[] { "", "0.00", "1", "0.00" }));
 
         JButton removePartButton = new JButton("Remove selected part");
+        lineItemActionButtons.add(removePartButton);
         AppTheme.styleSecondaryButton(removePartButton);
         removePartButton.addActionListener(event -> removeSelectedRow(partsTable, partsModel));
 
         JButton addLaborButton = new JButton("Add labor");
+        lineItemActionButtons.add(addLaborButton);
         AppTheme.stylePrimaryButton(addLaborButton);
         addLaborButton.addActionListener(event -> laborModel.addRow(new Object[] { "", "1.00", "0.00", "0.00" }));
 
         JButton removeLaborButton = new JButton("Remove selected labor");
+        lineItemActionButtons.add(removeLaborButton);
         AppTheme.styleSecondaryButton(removeLaborButton);
         removeLaborButton.addActionListener(event -> removeSelectedRow(laborTable, laborModel));
 
@@ -285,9 +294,8 @@ public class Estimate extends JPanel {
         totalLabel.setForeground(AppTheme.PRIMARY);
         validationLabel.setFont(AppTheme.BODY);
 
-        JButton saveButton = new JButton("Save as new draft version");
-        AppTheme.stylePrimaryButton(saveButton);
-        saveButton.addActionListener(event -> saveDraft());
+        AppTheme.stylePrimaryButton(saveDraftButton);
+        saveDraftButton.addActionListener(event -> saveDraft());
         AppTheme.stylePrimaryButton(approveButton);
         AppTheme.styleSecondaryButton(rejectButton);
         approveButton.setEnabled(false);
@@ -296,7 +304,7 @@ public class Estimate extends JPanel {
         rejectButton.addActionListener(event -> updateEstimateStatus(false));
 
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        actions.add(saveButton);
+        actions.add(saveDraftButton);
         actions.add(approveButton);
         actions.add(rejectButton);
 
@@ -406,6 +414,7 @@ public class Estimate extends JPanel {
                     return;
                 }
                 selectedJobId = job.getId();
+                selectedJobStatus = job.getStatus();
                 jobIdField.setText(Integer.toString(job.getId()));
                 jobSummaryLabel.setText("<html><b>" + escapeHtml(deviceName(job)) + "</b><br>"
                         + escapeHtml(job.getDevice().getCustomer().getFullName()) + " · "
@@ -445,8 +454,7 @@ public class Estimate extends JPanel {
         laborModel.replaceRows(List.of());
         loadingEstimateData = false;
         estimateDirty = false;
-        approveButton.setEnabled(false);
-        rejectButton.setEnabled(false);
+        updateWorkflowButtons(false);
         updateTotal(null);
     }
 
@@ -673,6 +681,15 @@ public class Estimate extends JPanel {
             return;
         }
         try {
+            RepairJob selectedJob = context.repairJobRepository().findById(selectedJobId)
+                    .orElseThrow(() -> new IllegalStateException(
+                            "The selected repair job no longer exists."));
+            selectedJobStatus = selectedJob.getStatus();
+            jobSummaryLabel.setText("<html><b>" + escapeHtml(deviceName(selectedJob)) + "</b><br>"
+                    + escapeHtml(selectedJob.getDevice().getCustomer().getFullName()) + " · "
+                    + escapeHtml(selectedJobStatus.getDisplayName()) + "<br>"
+                    + escapeHtml(selectedJob.getIssueDescription()) + "</html>");
+            updateWorkflowButtons(false);
             List<com.oop.project.model.Estimate> estimates =
                     context.estimateRepository().findByJobId(selectedJobId);
             changingVersionSelection = true;
@@ -722,8 +739,7 @@ public class Estimate extends JPanel {
             estimateDirty = false;
             boolean latest = versionSelector.getSelectedIndex() == versionSelector.getItemCount() - 1;
             boolean draft = estimate.isDraft() && latest;
-            approveButton.setEnabled(draft);
-            rejectButton.setEnabled(draft);
+            updateWorkflowButtons(draft);
             updateTotal(null);
             validationLabel.setText(latest
                     ? "Viewing latest version " + estimate.getVersion() + ". Saving creates a new draft version."
@@ -745,6 +761,21 @@ public class Estimate extends JPanel {
                 "Discard the unsaved changes to this estimate?",
                 "Unsaved estimate changes", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE)
                 == JOptionPane.YES_OPTION;
+    }
+
+    private void updateWorkflowButtons(boolean latestDraft) {
+        boolean waitingForApproval = selectedJobStatus == JobStatus.WAITING_FOR_APPROVAL;
+        boolean canEdit = context == null || selectedJobStatus == JobStatus.DIAGNOSING
+                || waitingForApproval;
+        saveDraftButton.setEnabled(context == null || selectedJobId > 0 && canEdit);
+        for (JButton button : lineItemActionButtons) {
+            button.setEnabled(canEdit);
+        }
+        partsTable.setEnabled(canEdit);
+        laborTable.setEnabled(canEdit);
+        noteArea.setEditable(canEdit);
+        approveButton.setEnabled(latestDraft && waitingForApproval);
+        rejectButton.setEnabled(latestDraft && waitingForApproval);
     }
 
     private void restoreActiveVersionSelection() {

@@ -1,6 +1,7 @@
 package com.oop.project.service;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -10,7 +11,6 @@ import com.oop.project.exception.InvalidStatusTransitionException;
 import com.oop.project.repository.DeviceRepository;
 import com.oop.project.repository.EstimateRepository;
 import com.oop.project.repository.RepairJobRepository;
-import com.oop.project.repository.StatusHistoryRepository;
 
 import com.oop.project.model.Device;
 import com.oop.project.model.Estimate;
@@ -25,14 +25,12 @@ public class JobServiceImpl implements JobService {
     private final DeviceRepository deviceRepository;
     private final RepairJobRepository repairJobRepository;
     private final EstimateRepository estimateRepository;
-    private final StatusHistoryRepository statusHistoryRepository;
 
     public JobServiceImpl(DeviceRepository deviceRepository, RepairJobRepository repairJobRepository,
-            EstimateRepository estimateRepository, StatusHistoryRepository statusHistoryRepository) {
+            EstimateRepository estimateRepository) {
         this.deviceRepository = deviceRepository;
         this.repairJobRepository = repairJobRepository;
         this.estimateRepository = estimateRepository;
-        this.statusHistoryRepository = statusHistoryRepository;
     }
 
     private RepairJob findJobOrThrow(int jobId) {
@@ -46,6 +44,31 @@ public class JobServiceImpl implements JobService {
     }
 
     @Override
+    public List<JobStatus> getAvailableNextStatuses(int jobId) {
+        RepairJob job = findJobOrThrow(jobId);
+        List<JobStatus> available = new ArrayList<>();
+        for (JobStatus next : JobStatus.values()) {
+            if (!job.getStatus().canTransitionTo(next)) {
+                continue;
+            }
+            if (next == JobStatus.WAITING_FOR_APPROVAL) {
+                boolean hasDraft = estimateRepository.findLatestByJobId(jobId)
+                        .map(Estimate::isDraft)
+                        .orElse(false);
+                if (!hasDraft) {
+                    continue;
+                }
+            }
+            if (next == JobStatus.REPAIRING
+                    || (next == JobStatus.CLOSED && job.getStatus() == JobStatus.WAITING_FOR_APPROVAL)) {
+                continue;
+            }
+            available.add(next);
+        }
+        return List.copyOf(available);
+    }
+
+    @Override
     public void updateEstimatedReadyAt(int jobId, LocalDateTime estimatedReadyAt) {
         RepairJob job = findJobOrThrow(jobId);
         job.setEstimatedReadyAt(estimatedReadyAt);
@@ -54,7 +77,12 @@ public class JobServiceImpl implements JobService {
 
     @Override
     public Estimate createEstimate(int jobId, List<Part> parts, List<LaborService> laborServices, String note) {
-        findJobOrThrow(jobId);
+        RepairJob job = findJobOrThrow(jobId);
+        if (job.getStatus() != JobStatus.DIAGNOSING
+                && job.getStatus() != JobStatus.WAITING_FOR_APPROVAL) {
+            throw new InvalidStatusTransitionException(
+                    "Estimates can only be created while a repair is being diagnosed or awaiting approval.");
+        }
         Estimate estimate = new Estimate(jobId, note, parts, laborServices);
         return estimateRepository.save(estimate);
     }
@@ -79,6 +107,16 @@ public class JobServiceImpl implements JobService {
                 throw new InvalidStatusTransitionException(
                         "No estimate has been approved by the customer yet");
             }
+            if (current == JobStatus.WAITING_FOR_APPROVAL) {
+                throw new InvalidStatusTransitionException(
+                        "Process estimate approval in the Estimate tab.");
+            }
+        }
+
+        if (newStatus == JobStatus.WAITING_FOR_APPROVAL
+                && !latest.map(Estimate::isDraft).orElse(false)) {
+            throw new InvalidStatusTransitionException(
+                    "Save a draft estimate before sending the repair for customer approval.");
         }
 
         if (newStatus == JobStatus.CLOSED && current == JobStatus.WAITING_FOR_APPROVAL) {
@@ -87,6 +125,8 @@ public class JobServiceImpl implements JobService {
                 throw new InvalidStatusTransitionException(
                         "Order can only be closed from WAITING_FOR_APPROVAL after the customer rejects the estimate");
             }
+            throw new InvalidStatusTransitionException(
+                    "Process estimate rejection in the Estimate tab.");
         }
     }
 

@@ -11,19 +11,27 @@ import com.oop.project.ui.helpers.RefreshableTableModel;
 import com.oop.project.ui.helpers.WrappedTableCellRenderer;
 import com.oop.project.ui.theme.AppTheme;
 import java.awt.BorderLayout;
+import java.awt.Component;
 import java.awt.FlowLayout;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
 import java.awt.GridLayout;
+import java.awt.Window;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Locale;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
+import javax.swing.JDialog;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -31,7 +39,10 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTable;
+import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
 import javax.swing.JTextField;
+import javax.swing.WindowConstants;
 import javax.swing.RowFilter;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableRowSorter;
@@ -52,7 +63,7 @@ public class Warranty extends JPanel {
     private final TableRowSorter<DefaultTableModel> candidateSorter = new TableRowSorter<>(candidateModel);
     private final JTextField warrantySearchField = new JTextField(18);
     private final JTextField repairSearchField = new JTextField(18);
-    private final JTextField repairIdField = new JTextField(10);
+    private final JTextField serialNumberField = new JTextField(18);
     private final JTextField deviceNameField = new JTextField(18);
     private final JTextField customerNameField = new JTextField(18);
     private final JTextField startDateField = new JTextField(12);
@@ -63,6 +74,7 @@ public class Warranty extends JPanel {
     private final JLabel totalCount = new JLabel("0");
     private final JLabel validCount = new JLabel("0");
     private final JLabel expiredCount = new JLabel("0");
+    private int selectedRepairId;
     private List<WarrantyRecord> warranties = List.of();
     private List<WarrantyCandidate> candidates = List.of();
 
@@ -142,15 +154,15 @@ public class Warranty extends JPanel {
         });
         candidatesPanel.add(repairFilter, BorderLayout.NORTH);
 
-        makeSelectionField(repairIdField);
+        makeSelectionField(serialNumberField);
         makeSelectionField(deviceNameField);
         makeSelectionField(customerNameField);
         addValidationListener(startDateField, this::validateWarrantyDates);
         addValidationListener(endDateField, this::validateWarrantyDates);
         JPanel repairDetails = new JPanel(new GridLayout(0, 2, 6, 6));
         repairDetails.setBorder(BorderFactory.createTitledBorder("Create warranty"));
-        repairDetails.add(new JLabel("Repair ID:"));
-        repairDetails.add(repairIdField);
+        repairDetails.add(new JLabel("Serial Number:"));
+        repairDetails.add(serialNumberField);
         repairDetails.add(new JLabel("Device:"));
         repairDetails.add(deviceNameField);
         repairDetails.add(new JLabel("Customer:"));
@@ -274,7 +286,8 @@ public class Warranty extends JPanel {
             return;
         }
         WarrantyCandidate candidate = candidates.get(row);
-        repairIdField.setText(Integer.toString(candidate.getRepairId()));
+        selectedRepairId = candidate.getRepairId();
+        serialNumberField.setText(candidate.getSerialNumber() == null ? "" : candidate.getSerialNumber());
         deviceNameField.setText(candidate.getDeviceName());
         customerNameField.setText(candidate.getCustomerName());
         startDateField.setText("");
@@ -284,7 +297,8 @@ public class Warranty extends JPanel {
 
     private void clearSelectedRepair() {
         candidateTable.clearSelection();
-        repairIdField.setText("");
+        selectedRepairId = 0;
+        serialNumberField.setText("");
         deviceNameField.setText("");
         customerNameField.setText("");
         startDateField.setText("");
@@ -364,8 +378,7 @@ public class Warranty extends JPanel {
         try {
             LocalDate start = LocalDate.parse(startDateField.getText().trim());
             LocalDate end = LocalDate.parse(endDateField.getText().trim());
-            int repairId = Integer.parseInt(repairIdField.getText().trim());
-            repository.createForRepair(repairId, start, end);
+            repository.createForRepair(selectedRepairId, start, end);
             refresh();
             showMessage("Warranty created.");
         } catch (RuntimeException exception) {
@@ -493,10 +506,117 @@ public class Warranty extends JPanel {
     }
 
     private static JPanel fieldWithValidation(JTextField field, JLabel validation) {
+        JPanel input = new JPanel(new BorderLayout(6, 0));
+        input.add(field, BorderLayout.CENTER);
+        JButton chooseDateButton = new JButton("Choose");
+        chooseDateButton.setToolTipText("Choose a date from the calendar");
+        AppTheme.styleSecondaryButton(chooseDateButton);
+        chooseDateButton.addActionListener(event -> chooseDate(field, chooseDateButton));
+        input.add(chooseDateButton, BorderLayout.EAST);
+
         JPanel panel = new JPanel(new BorderLayout(0, 2));
-        panel.add(field, BorderLayout.CENTER);
+        panel.add(input, BorderLayout.CENTER);
         panel.add(validation, BorderLayout.SOUTH);
         return panel;
+    }
+
+    private static void chooseDate(JTextField field, Component invoker) {
+        Window owner = SwingUtilities.getWindowAncestor(field);
+        LocalDate initialDate = parseDate(field.getText().trim());
+        CalendarDialog dialog = new CalendarDialog(owner, initialDate);
+        dialog.setLocationRelativeTo(invoker);
+        dialog.setVisible(true);
+        if (dialog.getSelectedDate() != null) {
+            field.setText(DateTimeFormatter.ISO_LOCAL_DATE.format(dialog.getSelectedDate()));
+        }
+    }
+
+    private static final class CalendarDialog extends JDialog {
+        private static final String[] WEEKDAYS = { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" };
+
+        private LocalDate selectedDate;
+        private LocalDate displayedMonth;
+        private final JLabel monthLabel = new JLabel("", SwingConstants.CENTER);
+        private final JPanel daysPanel = new JPanel(new GridBagLayout());
+
+        private CalendarDialog(Window owner, LocalDate initialDate) {
+            super(owner, "Choose date", ModalityType.APPLICATION_MODAL);
+            displayedMonth = (initialDate == null ? LocalDate.now() : initialDate).withDayOfMonth(1);
+            selectedDate = initialDate;
+            setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
+
+            JButton previousMonth = new JButton("<");
+            JButton nextMonth = new JButton(">");
+            previousMonth.addActionListener(event -> {
+                displayedMonth = displayedMonth.minusMonths(1);
+                refreshCalendar();
+            });
+            nextMonth.addActionListener(event -> {
+                displayedMonth = displayedMonth.plusMonths(1);
+                refreshCalendar();
+            });
+
+            JPanel monthNavigation = new JPanel(new BorderLayout(8, 0));
+            monthNavigation.add(previousMonth, BorderLayout.WEST);
+            monthNavigation.add(monthLabel, BorderLayout.CENTER);
+            monthNavigation.add(nextMonth, BorderLayout.EAST);
+            add(monthNavigation, BorderLayout.NORTH);
+            add(daysPanel, BorderLayout.CENTER);
+
+            JButton cancelButton = new JButton("Cancel");
+            cancelButton.addActionListener(event -> dispose());
+            JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+            footer.add(cancelButton);
+            add(footer, BorderLayout.SOUTH);
+
+            refreshCalendar();
+            pack();
+            setMinimumSize(new java.awt.Dimension(300, 260));
+        }
+
+        private LocalDate getSelectedDate() {
+            return selectedDate;
+        }
+
+        private void refreshCalendar() {
+            monthLabel.setText(displayedMonth.format(
+                    DateTimeFormatter.ofPattern("MMMM yyyy", Locale.getDefault())));
+            daysPanel.removeAll();
+
+            GridBagConstraints constraints = new GridBagConstraints();
+            constraints.fill = GridBagConstraints.BOTH;
+            constraints.weightx = 1;
+            constraints.weighty = 1;
+            for (int column = 0; column < WEEKDAYS.length; column++) {
+                constraints.gridx = column;
+                constraints.gridy = 0;
+                daysPanel.add(new JLabel(WEEKDAYS[column], SwingConstants.CENTER), constraints);
+            }
+
+            LocalDate firstDay = displayedMonth.withDayOfMonth(1);
+            int column = firstDay.getDayOfWeek().getValue() - DayOfWeek.MONDAY.getValue();
+            for (int day = 1; day <= displayedMonth.lengthOfMonth(); day++) {
+                LocalDate date = displayedMonth.withDayOfMonth(day);
+                JButton dayButton = new JButton(Integer.toString(day));
+                dayButton.setFocusPainted(false);
+                if (date.equals(selectedDate)) {
+                    dayButton.setBackground(AppTheme.SELECTION);
+                }
+                dayButton.addActionListener(event -> {
+                    selectedDate = date;
+                    dispose();
+                });
+
+                constraints.gridx = column;
+                constraints.gridy = 1 + (day + firstDay.getDayOfWeek().getValue() - 2) / 7;
+                daysPanel.add(dayButton, constraints);
+                column = (column + 1) % 7;
+            }
+
+            daysPanel.revalidate();
+            daysPanel.repaint();
+            pack();
+        }
     }
 
     private static void addValidationListener(JTextField field, Runnable validation) {

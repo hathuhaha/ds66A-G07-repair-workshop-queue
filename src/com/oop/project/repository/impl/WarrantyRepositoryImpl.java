@@ -57,9 +57,11 @@ public class WarrantyRepositoryImpl extends AbstractJdbcRepository implements Wa
     @Override
     public List<WarrantyCandidate> findCandidates() {
         String sql = """
-                SELECT repair_id, device_id, device_name, customer_name, received_at, completed_at
-                FROM v_warranty_candidates
-                ORDER BY completed_at DESC NULLS LAST, repair_id DESC
+                SELECT candidates.repair_id, devices.serial_number, candidates.device_name,
+                       candidates.customer_name, candidates.received_at, candidates.completed_at
+                FROM v_warranty_candidates candidates
+                JOIN devices ON devices.id = candidates.device_id
+                ORDER BY candidates.completed_at DESC NULLS LAST, candidates.repair_id DESC
                 """;
         return queryList("Lấy đơn đủ điều kiện tạo bảo hành", sql, NO_PARAMS, rs -> new WarrantyCandidate(
                 rs.getInt("repair_id"),

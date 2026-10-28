@@ -445,6 +445,8 @@ public class RepairQueue extends JPanel {
 
     private void updateStatusChoices() {
         nextStatusComboBox.removeAllItems();
+        statusNoteField.setText("");
+        updateStatusButton.setText("Update selected repair");
         int selected = filteredTable.getSelectedRow();
         if (selected < 0 || selected >= filteredTable.getRowCount() || jobService == null) {
             nextStatusComboBox.setEnabled(false);
@@ -454,21 +456,36 @@ public class RepairQueue extends JPanel {
         }
 
         int modelRow = filteredTable.convertRowIndexToModel(selected);
-        String currentStatusName = String.valueOf(filteredTableModel.getValueAt(modelRow, 3));
-        JobStatus currentStatus = java.util.Arrays.stream(JobStatus.values())
-                .filter(status -> status.getDisplayName().equals(currentStatusName))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException(
-                        "Unknown repair status in filtered queue: " + currentStatusName));
-        for (JobStatus status : JobStatus.values()) {
-            if (currentStatus.canTransitionTo(status)) {
-                nextStatusComboBox.addItem(status);
-            }
+        int jobId = Integer.parseInt(filteredTableModel.getValueAt(modelRow, 0).toString());
+        List<JobStatus> nextStatuses;
+        try {
+            nextStatuses = jobService.getAvailableNextStatuses(jobId);
+        } catch (RuntimeException exception) {
+            exception.printStackTrace();
+            JOptionPane.showMessageDialog(this, exception.getMessage(),
+                    "Could not load repair actions", JOptionPane.ERROR_MESSAGE);
+            nextStatusComboBox.setEnabled(false);
+            statusNoteField.setEnabled(false);
+            updateStatusButton.setEnabled(false);
+            return;
+        }
+        for (JobStatus status : nextStatuses) {
+            nextStatusComboBox.addItem(status);
         }
         boolean hasNextStatus = nextStatusComboBox.getItemCount() > 0;
         nextStatusComboBox.setEnabled(hasNextStatus);
         statusNoteField.setEnabled(hasNextStatus);
         updateStatusButton.setEnabled(hasNextStatus);
+        if (hasNextStatus) {
+            JobStatus nextStatus = (JobStatus) nextStatusComboBox.getSelectedItem();
+            updateStatusButton.setText("Update to " + nextStatus.getDisplayName());
+        } else {
+            String currentStatus = String.valueOf(filteredTableModel.getValueAt(modelRow, 3));
+            statusNoteField.setText("Waiting for estimate approval or repair closure in the Estimate workflow.");
+            if ("Diagnosing".equals(currentStatus)) {
+                statusNoteField.setText("Create a draft estimate before sending it for approval.");
+            }
+        }
     }
 
     private static RefreshableTableModel createReadOnlyTableModel(List<Object[]> rows) {
