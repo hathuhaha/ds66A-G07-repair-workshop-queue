@@ -1,5 +1,7 @@
 package com.oop.project.config;
 
+import javax.sql.DataSource;
+
 import com.oop.project.repository.CustomerRepository;
 import com.oop.project.repository.DeviceRepository;
 import com.oop.project.repository.EstimateRepository;
@@ -12,8 +14,6 @@ import com.oop.project.repository.impl.RepairJobRepositoryImpl;
 import com.oop.project.repository.impl.StatusHistoryRepositoryImpl;
 import com.oop.project.service.JobService;
 import com.oop.project.service.JobServiceImpl;
-
-import javax.sql.DataSource;
 
 /**
  * Wires the repositories and the service from one DataSource, so UI code never
@@ -35,7 +35,8 @@ public final class AppContext {
         this.repairJobRepository = new RepairJobRepositoryImpl(dataSource);
         this.estimateRepository = new EstimateRepositoryImpl(dataSource);
         this.statusHistoryRepository = new StatusHistoryRepositoryImpl(dataSource);
-        this.jobService = new JobServiceImpl(repairJobRepository, deviceRepository, estimateRepository);
+        this.jobService = new JobServiceImpl(deviceRepository, repairJobRepository, estimateRepository,
+                statusHistoryRepository);
     }
 
     /** Context for the real application database (application.properties). */
