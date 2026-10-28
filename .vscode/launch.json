@@ -7,6 +7,13 @@
             "request": "launch",
             "mainClass": "com.oop.project.Main",
             "projectName": "ds66A-G07-repair-workshop-queue"
+        },
+        {
+            "type": "java",
+            "name": "Run Warranty",
+            "request": "launch",
+            "mainClass": "com.oop.project.ui.Warranty",
+            "projectName": "ds66A-G07-repair-workshop-queue"
         }
     ]
 }

@@ -9,13 +9,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Flow;
 import com.oop.project.ui.theme.AppTheme;
+import com.oop.project.ui.helpers.WrappedTableCellRenderer;
 
 public class RepairQueue extends JPanel {
-    private static String[] columnNames = { "ID", "Device Name", "Symptoms", "Status", "Received At", "Customer Name", "Customer Phone" };
+    private static String[] columnNames = { "ID", "Device Name", "Symptoms", "Status", "Received At", "Customer Name",
+            "Customer Phone" };
     private List<Object[]> data, filteredData;
-    private String typeOfPanel = "Test";
     private JTable table, filteredTable;
     private JPanel filter;
 
@@ -25,8 +25,7 @@ public class RepairQueue extends JPanel {
 
     public RepairQueue(String typeOfPanel) {
         AppTheme.setup();
-        this.typeOfPanel = typeOfPanel;
-        if (typeOfPanel.equals("Test")) {
+        if ("test".equalsIgnoreCase(typeOfPanel)) {
             this.data = loadSampleData();
             this.filteredData = loadSampleFilteredData();
 
@@ -41,6 +40,7 @@ public class RepairQueue extends JPanel {
 
     private void createList() {
         this.table = new JTable(createReadOnlyTableModel(this.data));
+        WrappedTableCellRenderer.install(this.table);
         this.table.setPreferredScrollableViewportSize(new Dimension(600, 350));
         JScrollPane scrollPane = new JScrollPane(this.table);
         scrollPane.setBorder(BorderFactory.createTitledBorder("All repair requests"));
@@ -116,7 +116,7 @@ public class RepairQueue extends JPanel {
         JPanel filterPanel = new JPanel();
         filterPanel.setLayout(new BoxLayout(filterPanel, BoxLayout.Y_AXIS));
 
-        //create general search and add to filterPanel
+        // create general search and add to filterPanel
         JPanel searchGeneral = new JPanel();
         searchGeneral.setLayout(new FlowLayout(FlowLayout.LEFT));
         JLabel searchGeneralLabel = new JLabel("Search:");
@@ -198,6 +198,7 @@ public class RepairQueue extends JPanel {
     private void createFilteredTable() {
         filteredTableModel = createReadOnlyTableModel(filteredData);
         filteredTable = new JTable(filteredTableModel);
+        WrappedTableCellRenderer.install(filteredTable);
     }
 
     private static DefaultTableModel createReadOnlyTableModel(List<Object[]> rows) {
@@ -208,14 +209,6 @@ public class RepairQueue extends JPanel {
             }
         };
     }
-
-    private void updateFilteredTable(List<Object[]> rows) {
-        filteredTableModel.setRowCount(0); // Clear the displayed rows
-        for (Object[] row : rows) {
-            filteredTableModel.addRow(row);
-        }
-    }
-
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             JFrame frame = new JFrame("Repair Queue");

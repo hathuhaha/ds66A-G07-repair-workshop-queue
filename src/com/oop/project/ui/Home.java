@@ -10,28 +10,21 @@ public class Home extends JFrame {
 
     public Home() {
         setTitle("G07 - Repair Workshop Queue");
-        setSize(900, 600);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setLocationRelativeTo(null);
 
         // Mỗi tab là một JPanel
         JPanel customersPanel = new JPanel();
         AppTheme.styleContentPanel(customersPanel);
-        JPanel queuePanel = new RepairQueue();
-        JPanel estimatePanel = new JPanel();
-        JPanel warrantyPanel = new JPanel();
-        JPanel historyPanel = new JPanel();
+        JPanel queuePanel = new RepairQueue("test");
+        JPanel estimatePanel = new Estimate("test");
+        JPanel warrantyPanel = new Warranty("test");
+        JPanel historyPanel = new JobHistory("test");
 
         // Thêm nội dung vào từng panel
         customersPanel.add(new JLabel("Tên:"));
         customersPanel.add(new JTextField(15));
         JButton addButton = new JButton("Add");
         customersPanel.add(addButton);
-
-        queuePanel.add(new JLabel("Danh sách job"));
-        estimatePanel.add(new JLabel("Báo giá"));
-        warrantyPanel.add(new JLabel("Bảo hành"));
-        historyPanel.add(new JLabel("Lịch sử"));
 
         JTabbedPane tabs = new JTabbedPane();
         tabs.addTab("Customers/Devices", customersPanel);
@@ -43,6 +36,11 @@ public class Home extends JFrame {
         add(tabs);
         AppTheme.applyTo(getContentPane());
         AppTheme.stylePrimaryButton(addButton);
+        pack();
+        setMinimumSize(new java.awt.Dimension(900, 600));
+        setResizable(true);
+        setLocationRelativeTo(null);
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
     }
 
     public static void main(String[] args) {
