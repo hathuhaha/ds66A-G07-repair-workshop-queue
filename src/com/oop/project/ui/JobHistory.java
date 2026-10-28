@@ -1,7 +1,10 @@
 package com.oop.project.ui;
 
 import com.oop.project.ui.helpers.WrappedTableCellRenderer;
+import com.oop.project.ui.helpers.RefreshableTableModel;
 import com.oop.project.ui.theme.AppTheme;
+import com.oop.project.model.StatusHistory;
+import com.oop.project.repository.StatusHistoryRepository;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
@@ -30,6 +33,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
+import java.util.ArrayList;
+import java.util.List;
 
 public class JobHistory extends JPanel {
     private static final String[] COLUMN_NAMES = {
@@ -38,20 +43,30 @@ public class JobHistory extends JPanel {
     private static final DateTimeFormatter DISPLAY_DATE_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
     private static final DateTimeFormatter DISPLAY_DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
-    private final DefaultTableModel tableModel;
+    private final RefreshableTableModel tableModel;
     private final TableRowSorter<DefaultTableModel> sorter;
     private final JTextField searchField;
     private final DateFilterPicker fromDatePicker;
     private final DateFilterPicker toDatePicker;
     private final JComboBox<String> statusFilter;
     private final JLabel recordCount;
+    private final StatusHistoryRepository repository;
 
     public JobHistory() {
         this("");
     }
 
     public JobHistory(String typeOfPanel) {
+        this(typeOfPanel, null);
+    }
+
+    public JobHistory(StatusHistoryRepository repository) {
+        this("", repository);
+    }
+
+    private JobHistory(String typeOfPanel, StatusHistoryRepository repository) {
         AppTheme.setup();
+        this.repository = repository;
         setLayout(new BorderLayout(12, 12));
         setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
         setBackground(AppTheme.BACKGROUND);
@@ -68,19 +83,16 @@ public class JobHistory extends JPanel {
         heading.add(subtitle, BorderLayout.CENTER);
         add(heading, BorderLayout.NORTH);
 
-        tableModel = new DefaultTableModel(COLUMN_NAMES, 0) {
-            @Override
-            public boolean isCellEditable(int row, int column) {
-                return false;
-            }
-
+        tableModel = new RefreshableTableModel(COLUMN_NAMES, false) {
             @Override
             public Class<?> getColumnClass(int column) {
                 return column == 5 ? LocalDateTime.class : Object.class;
             }
         };
         sorter = new TableRowSorter<>(tableModel);
-        if ("test".equalsIgnoreCase(typeOfPanel)) {
+        if (repository != null) {
+            loadRows(repository.findAll());
+        } else if ("test".equalsIgnoreCase(typeOfPanel)) {
             addSampleRows();
         }
 
@@ -148,6 +160,29 @@ public class JobHistory extends JPanel {
         AppTheme.styleSecondaryLabel(recordCount);
         add(recordCount, BorderLayout.SOUTH);
         updateRecordCount();
+    }
+
+    public void refresh() {
+        if (repository == null) {
+            return;
+        }
+        loadRows(repository.findAll());
+        updateRecordCount();
+    }
+
+    private void loadRows(List<StatusHistory> histories) {
+        List<Object[]> rows = new ArrayList<>(histories.size());
+        for (StatusHistory history : histories) {
+            rows.add(new Object[] {
+                    history.getId(),
+                    history.getJobId(),
+                    history.getOldStatus() == null ? "-" : history.getOldStatus().name(),
+                    history.getNewStatus().name(),
+                    history.getNote(),
+                    history.getChangedAt()
+            });
+        }
+        tableModel.replaceRows(rows);
     }
 
     private static void addFilterRow(JPanel panel, int row, JLabel label, java.awt.Component component) {

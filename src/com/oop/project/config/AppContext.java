@@ -7,11 +7,13 @@ import com.oop.project.repository.DeviceRepository;
 import com.oop.project.repository.EstimateRepository;
 import com.oop.project.repository.RepairJobRepository;
 import com.oop.project.repository.StatusHistoryRepository;
+import com.oop.project.repository.WarrantyRepository;
 import com.oop.project.repository.impl.CustomerRepositoryImpl;
 import com.oop.project.repository.impl.DeviceRepositoryImpl;
 import com.oop.project.repository.impl.EstimateRepositoryImpl;
 import com.oop.project.repository.impl.RepairJobRepositoryImpl;
 import com.oop.project.repository.impl.StatusHistoryRepositoryImpl;
+import com.oop.project.repository.impl.WarrantyRepositoryImpl;
 import com.oop.project.service.JobService;
 import com.oop.project.service.JobServiceImpl;
 
@@ -27,6 +29,7 @@ public final class AppContext {
     private final RepairJobRepository repairJobRepository;
     private final EstimateRepository estimateRepository;
     private final StatusHistoryRepository statusHistoryRepository;
+    private final WarrantyRepository warrantyRepository;
     private final JobService jobService;
 
     public AppContext(DataSource dataSource) {
@@ -35,6 +38,7 @@ public final class AppContext {
         this.repairJobRepository = new RepairJobRepositoryImpl(dataSource);
         this.estimateRepository = new EstimateRepositoryImpl(dataSource);
         this.statusHistoryRepository = new StatusHistoryRepositoryImpl(dataSource);
+        this.warrantyRepository = new WarrantyRepositoryImpl(dataSource);
         this.jobService = new JobServiceImpl(deviceRepository, repairJobRepository, estimateRepository,
                 statusHistoryRepository);
     }
@@ -62,6 +66,10 @@ public final class AppContext {
 
     public StatusHistoryRepository statusHistoryRepository() {
         return statusHistoryRepository;
+    }
+
+    public WarrantyRepository warrantyRepository() {
+        return warrantyRepository;
     }
 
     public JobService jobService() {

@@ -1,4 +1,58 @@
-# OOP Java Project – Repository Setup Guide
+# Repair Workshop Queue
+
+Ứng dụng Java Swing quản lý khách hàng, thiết bị, quy trình sửa chữa, báo giá,
+bảo hành và lịch sử trạng thái. Project được biên dịch trực tiếp bằng `javac`,
+không yêu cầu Maven.
+
+## Cấu trúc project
+
+```text
+.
+├── database/                         # SQL dùng để khởi tạo database local
+│   ├── schema.sql
+│   └── seed_data.sql
+├── docs/                             # Tài liệu yêu cầu và thiết kế
+├── lib/                              # PostgreSQL JDBC driver
+├── src/
+│   ├── com/oop/project/              # Java source root
+│   │   ├── Main.java                 # Entry point, mở giao diện Home
+│   │   ├── adapter/                  # Chuyển đổi/import dữ liệu legacy
+│   │   ├── config/                   # Kết nối database và AppContext
+│   │   ├── exception/                # Exception nghiệp vụ và truy cập dữ liệu
+│   │   ├── model/                    # Entity và domain model
+│   │   ├── repository/               # Repository interfaces, JDBC implementations,
+│   │   │                              # row mappers
+│   │   ├── service/                  # Nghiệp vụ repair job và estimate
+│   │   ├── ui/                       # Swing screens, helpers và theme
+│   │   ├── sample_data/              # Dữ liệu mẫu
+│   │   └── util/                     # Tiện ích dùng chung
+│   └── main/resources/db/            # Bản schema và seed được đóng cùng resources
+│       ├── schema.sql
+│       └── seed_data.sql
+├── .env                              # Cấu hình database local (không commit)
+└── README.md
+```
+
+`src/com/oop/project` là source root Java hiện tại; `src/main/resources/db` giữ
+các script SQL ở vị trí resources. Hai bộ script trong `database/` và
+`src/main/resources/db/` hiện có cùng nội dung.
+
+## Những chức năng đã triển khai
+
+- **Customers/Devices**: tìm kiếm và quản lý thông tin khách hàng, thiết bị;
+  xem lịch sử repair của khách hàng và tạo repair job cho thiết bị.
+- **Repair status**: cập nhật trạng thái từ Repair Queue hoặc lịch sử repair
+  trong màn Customer; kiểm tra transition qua service và lưu status history.
+- **Repair Queue**: lọc danh sách và xem trạng thái/hạn dự kiến của các repair.
+- **Estimate**: chọn repair job, nhập parts và labor, xem tổng tiền, lưu/tải
+  estimate, duyệt hoặc từ chối estimate. Trường nhập kiểm tra định dạng và range
+  trước khi lưu.
+- **Warranty**: xem/tìm kiếm warranties và repairs đủ điều kiện; tạo warranty
+  từ repair được chọn; import dữ liệu legacy. Repair đã có warranty không còn là
+  candidate để tạo thêm warranty.
+- **Job History**: xem và lọc lịch sử chuyển trạng thái.
+- **Input validation**: hiển thị lỗi ngay cạnh trường nhập cho ngày Warranty,
+  ngày import, số liệu Estimate và số ngày khi tạo repair job.
 
 Tài liệu này hướng dẫn **các bước bắt buộc** để sinh viên tạo repository cho project từ **template chính thức của học phần**, cũng như các **quy định về đặt tên, phân quyền và làm việc nhóm**.
 
@@ -158,14 +212,19 @@ Trước khi nộp, nhóm phải tự kiểm tra:
 - Giảng viên sẽ đánh giá dựa trên code, lịch sử commit và khả năng giải thích khi bảo vệ project.  
 - Các vấn đề phát sinh do không đọc kỹ README sẽ không được giải quyết ngoại lệ.
 
+## Cấu hình database
+
+Tạo database PostgreSQL `repair-workshop-queue`. Chạy script theo thứ tự:
+
+1. `src/main/resources/db/schema.sql` (hoặc bản tương ứng trong `database/`).
+2. `src/main/resources/db/seed_data.sql` (hoặc bản tương ứng trong `database/`).
+
+**Lưu ý:** các script tạo lại schema và dữ liệu mẫu, có thể xóa dữ liệu đang có.
+Chỉ chạy trên database mới/dev/test, không chạy trên database có dữ liệu cần giữ.
+
 ## Chạy ứng dụng (không dùng Maven)
 
-Ứng dụng dùng PostgreSQL. Tạo database `repair-workshop-queue`, sau đó chạy
-`database/schema.sql` và `database/seed_data.sql` theo thứ tự. **Hai script này
-xóa dữ liệu/bảng hiện có**, vì vậy chỉ chạy trên database phát triển hoặc database
-mới; không chạy trên database có dữ liệu cần giữ.
-
-Tạo file `.env` ở thư mục gốc:
+Tạo file `.env` tại thư mục gốc:
 
 ```text
 DB_URL=jdbc:postgresql://localhost:5432/repair-workshop-queue
@@ -183,3 +242,12 @@ Get-ChildItem .\src -Recurse -Filter *.java |
 javac -encoding UTF-8 -cp ".\lib\*" -d ".\out" "@sources.txt"
 java -cp ".\out;.\lib\*" com.oop.project.Main
 ```
+
+Các biến `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` cũng có thể được đặt trong
+environment thay cho file `.env`. PostgreSQL JDBC driver cần có trong `lib/`.
+
+File legacy bảo hành có một bản ghi mỗi dòng, theo định dạng
+`deviceId|COVERED|description`, `deviceId|EXPIRED|description` hoặc
+`deviceId|NOT_COVERED|description`. Khi nhập, điền ngày bắt đầu/kết thúc thực tế
+cho các bản ghi `COVERED` và `EXPIRED`; `NOT_COVERED` không được lưu thành bảo
+hành. Nhập lại cùng file sẽ nhận diện các dòng đã nhập trước đó.

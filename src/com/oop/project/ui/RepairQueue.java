@@ -11,14 +11,18 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 
 import com.oop.project.config.AppContext;
 import com.oop.project.model.Customer;
 import com.oop.project.model.Device;
+import com.oop.project.model.JobStatus;
 import com.oop.project.model.RepairJob;
 import com.oop.project.repository.RepairJobRepository;
+import com.oop.project.service.JobService;
 import com.oop.project.ui.theme.AppTheme;
 import com.oop.project.ui.helpers.WrappedTableCellRenderer;
+import com.oop.project.ui.helpers.RefreshableTableModel;
 import javax.swing.RowSorter;
 import javax.swing.SortOrder;
 import javax.swing.table.TableRowSorter;
@@ -31,6 +35,14 @@ public class RepairQueue extends JPanel {
     private List<Object[]> data, filteredData;
     private JTable table, filteredTable;
     private JPanel filter;
+    private RepairJobRepository repository;
+    private JobService jobService;
+    private Runnable afterJobUpdate = () -> { };
+    private String currentGeneralSearch = "";
+    private String currentStatus = "All";
+    private String currentDeviceSearch = "";
+    private String currentCustomerSearch = "";
+    private String currentSymptomsSearch = "";
 
     public RepairQueue() {
         this(loadSampleData(), loadSampleFilteredData());
@@ -41,14 +53,32 @@ public class RepairQueue extends JPanel {
             this.data = loadSampleData();
             this.filteredData = loadSampleFilteredData();
         } else {
-            this.data = loadRealData(AppContext.create().repairJobRepository());
+            this.repository = AppContext.create().repairJobRepository();
+            this.data = loadRealData(repository);
             this.filteredData = new ArrayList<>(data);
         }
         initialize();
     }
 
     public RepairQueue(RepairJobRepository repository) {
-        this(loadRealData(repository), null);
+        this.repository = repository;
+        this.data = loadRealData(repository);
+        this.filteredData = new ArrayList<>(data);
+        initialize();
+    }
+
+    public RepairQueue(AppContext context) {
+        this(context, () -> { });
+    }
+
+    public RepairQueue(AppContext context, Runnable afterJobUpdate) {
+        this(context.repairJobRepository());
+        this.jobService = context.jobService();
+        this.afterJobUpdate = afterJobUpdate;
+    }
+
+    public void setAfterJobUpdate(Runnable afterJobUpdate) {
+        this.afterJobUpdate = afterJobUpdate;
     }
 
     private RepairQueue(List<Object[]> initialData, List<Object[]> initialFilteredData) {
@@ -242,6 +272,25 @@ public class RepairQueue extends JPanel {
         JButton searchButton = new JButton("🔎︎");
         searchButtonPanel.add(searchButton);
         filterPanel.add(searchButtonPanel);
+        searchButton.addActionListener(event -> applyFilters(
+                searchGeneralField.getText(),
+                (String) statusComboBox.getSelectedItem(),
+                searchDeviceField.getText(),
+                searchCustomerField.getText(),
+                searchSymptomsField.getText()));
+
+        JPanel updatePanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        JComboBox<JobStatus> nextStatus = new JComboBox<>(JobStatus.values());
+        JTextField statusNote = new JTextField(18);
+        JButton updateStatusButton = new JButton("Update selected repair");
+        updatePanel.add(new JLabel("New status:"));
+        updatePanel.add(nextStatus);
+        updatePanel.add(new JLabel("Note:"));
+        updatePanel.add(statusNote);
+        updatePanel.add(updateStatusButton);
+        updateStatusButton.addActionListener(event -> updateSelectedJob(
+                nextStatus.getItemAt(nextStatus.getSelectedIndex()), statusNote.getText()));
+        filterPanel.add(updatePanel);
 
         // create FilterTable() and add to JPanel Filter
         createFilteredTable();
@@ -254,7 +303,103 @@ public class RepairQueue extends JPanel {
 
     }
 
-    private DefaultTableModel filteredTableModel;
+    private void applyFilters(
+            String generalSearch,
+            String selectedStatus,
+            String deviceSearch,
+            String customerSearch,
+            String symptomsSearch) {
+        currentGeneralSearch = generalSearch;
+        currentStatus = selectedStatus;
+        currentDeviceSearch = deviceSearch;
+        currentCustomerSearch = customerSearch;
+        currentSymptomsSearch = symptomsSearch;
+        String generalQuery = normalize(generalSearch);
+        String deviceQuery = normalize(deviceSearch);
+        String customerQuery = normalize(customerSearch);
+        String symptomsQuery = normalize(symptomsSearch);
+
+        List<Object[]> matchingRows = new ArrayList<>();
+        for (Object[] row : data) {
+            if (rowText(row).contains(generalQuery)
+                    && statusMatches(String.valueOf(row[3]), selectedStatus)
+                    && normalize(row[1]).contains(deviceQuery)
+                    && (normalize(row[5]).contains(customerQuery)
+                            || normalize(row[6]).contains(customerQuery))
+                    && normalize(row[2]).contains(symptomsQuery)) {
+                matchingRows.add(row);
+            }
+        }
+        filteredTableModel.replaceRows(matchingRows);
+    }
+
+    public void refresh() {
+        if (repository == null) {
+            return;
+        }
+        data = loadRealData(repository);
+        DefaultTableModel allRows = createReadOnlyTableModel(data);
+        table.setModel(allRows);
+        applyFilters(currentGeneralSearch, currentStatus, currentDeviceSearch,
+                currentCustomerSearch, currentSymptomsSearch);
+    }
+
+    private void updateSelectedJob(JobStatus status, String note) {
+        int selected = table.getSelectedRow();
+        if (jobService == null) {
+            JOptionPane.showMessageDialog(this, "Database mode is required to update repair status.");
+            return;
+        }
+        if (selected < 0) {
+            JOptionPane.showMessageDialog(this, "Select a repair request first.");
+            return;
+        }
+        try {
+            int row = table.convertRowIndexToModel(selected);
+            int jobId = Integer.parseInt(table.getModel().getValueAt(row, 0).toString());
+            jobService.updateJobStatusWithHistory(jobId, status, note);
+            refresh();
+            afterJobUpdate.run();
+        } catch (RuntimeException exception) {
+            exception.printStackTrace();
+            JOptionPane.showMessageDialog(this, exception.getMessage(),
+                    "Could not update repair status", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private static boolean statusMatches(String value, String selectedStatus) {
+        String status = normalize(value);
+        if (selectedStatus == null || "All".equalsIgnoreCase(selectedStatus)) {
+            return true;
+        }
+        return switch (selectedStatus) {
+            case "Pending" -> status.contains("pending")
+                    || status.contains("received")
+                    || status.contains("diagnos")
+                    || status.contains("approval");
+            case "In Progress" -> status.contains("progress") || status.contains("repair");
+            case "Completed" -> status.contains("completed")
+                    || status.contains("ready")
+                    || status.contains("closed");
+            default -> status.equals(normalize(selectedStatus));
+        };
+    }
+
+    private static String rowText(Object[] row) {
+        StringBuilder text = new StringBuilder();
+        for (Object value : row) {
+            if (value != null) {
+                text.append(value).append(' ');
+            }
+        }
+        return normalize(text.toString());
+    }
+
+    private static String normalize(Object value) {
+        return value == null ? "" : value.toString().toLowerCase(Locale.ROOT).trim();
+    }
+
+    private RefreshableTableModel filteredTableModel;
     private TableRowSorter<DefaultTableModel> filteredTableSorter;
 
     private void createFilteredTable() {
@@ -270,13 +415,10 @@ public class RepairQueue extends JPanel {
         WrappedTableCellRenderer.install(filteredTable);
     }
 
-    private static DefaultTableModel createReadOnlyTableModel(List<Object[]> rows) {
-        return new DefaultTableModel(rows.toArray(new Object[0][]), columnNames) {
-            @Override
-            public boolean isCellEditable(int row, int column) {
-                return false;
-            }
-        };
+    private static RefreshableTableModel createReadOnlyTableModel(List<Object[]> rows) {
+        RefreshableTableModel model = new RefreshableTableModel(columnNames, false);
+        model.replaceRows(rows);
+        return model;
     }
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {

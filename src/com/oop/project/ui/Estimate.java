@@ -10,33 +10,53 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.JTabbedPane;
+import javax.swing.JSplitPane;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 import javax.swing.event.TableModelEvent;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.ListSelectionModel;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.awt.Dimension;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.List;
+
+import com.oop.project.config.AppContext;
+import com.oop.project.model.LaborService;
+import com.oop.project.model.Part;
+import com.oop.project.model.RepairJob;
+import com.oop.project.ui.helpers.RefreshableTableModel;
 
 public class Estimate extends JPanel {
     private final JTextField jobIdField = new JTextField(12);
     private final JTextField versionField = new JTextField("1", 8);
+    private final JLabel jobSummaryLabel = new JLabel("Choose a repair to begin.");
     private final JComboBox<String> statusCombo = new JComboBox<>(
             new String[] { "DRAFT", "APPROVED", "REJECTED" });
     private final JTextArea noteArea = new JTextArea(3, 30);
-    private final DefaultTableModel partsModel = createEditableModel(
+    private final RefreshableTableModel partsModel = createEditableModel(
             new String[] { "Part name", "Unit price", "Quantity", "Subtotal" });
-    private final DefaultTableModel laborModel = createEditableModel(
+    private final RefreshableTableModel laborModel = createEditableModel(
             new String[] { "Labor description", "Hours", "Hourly rate", "Subtotal" });
+    private final JTable partsTable = new JTable(partsModel);
+    private final JTable laborTable = new JTable(laborModel);
     private final JLabel totalLabel = new JLabel("Total estimate: 0.00");
     private final JLabel validationLabel = new JLabel("Prototype only - not connected to PostgreSQL.");
+    private final JLabel partsInputValidation = validationLabel();
+    private final JLabel laborInputValidation = validationLabel();
+    private final AppContext context;
+    private final Runnable afterEstimateStatusChange;
+    private final JButton approveButton = new JButton("Approve latest");
+    private final JButton rejectButton = new JButton("Reject latest");
+    private int activeEstimateId;
     private boolean calculatingTotal;
 
     public Estimate() {
@@ -44,13 +64,34 @@ public class Estimate extends JPanel {
     }
 
     public Estimate(String typeOfPanel) {
+        this(typeOfPanel, null);
+    }
+
+    public Estimate(AppContext context) {
+        this(context, () -> { });
+    }
+
+    public Estimate(AppContext context, Runnable afterEstimateStatusChange) {
+        this("", context, afterEstimateStatusChange);
+    }
+
+    private Estimate(String typeOfPanel, AppContext context) {
+        this(typeOfPanel, context, () -> { });
+    }
+
+    private Estimate(String typeOfPanel, AppContext context, Runnable afterEstimateStatusChange) {
+        this.context = context;
+        this.afterEstimateStatusChange = afterEstimateStatusChange;
         AppTheme.setup();
         setLayout(new BorderLayout(12, 12));
         setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
         setBackground(AppTheme.BACKGROUND);
 
-        add(createHeader(), BorderLayout.NORTH);
-        add(createEstimateForm(), BorderLayout.WEST);
+        JPanel top = new JPanel(new BorderLayout(0, 10));
+        top.setOpaque(false);
+        top.add(createHeader(), BorderLayout.NORTH);
+        top.add(createEstimateForm(), BorderLayout.CENTER);
+        add(top, BorderLayout.NORTH);
         add(createLineItemsPanel(), BorderLayout.CENTER);
         add(createFooter(), BorderLayout.SOUTH);
 
@@ -75,13 +116,15 @@ public class Estimate extends JPanel {
 
     private JPanel createEstimateForm() {
         JPanel form = new JPanel(new GridBagLayout());
-        form.setBorder(BorderFactory.createTitledBorder("Estimate details"));
+        form.setBorder(BorderFactory.createTitledBorder("Repair job and estimate details"));
 
         jobIdField.setToolTipText("Repair job ID this estimate belongs to");
         AppTheme.styleTextField(jobIdField);
+        jobIdField.setEditable(false);
         versionField.setToolTipText("Estimate version for this repair job");
         AppTheme.styleTextField(versionField);
         versionField.setEditable(false);
+        statusCombo.setEnabled(false);
         AppTheme.styleComboBox(statusCombo);
         noteArea.setLineWrap(true);
         noteArea.setWrapStyleWord(true);
@@ -90,20 +133,45 @@ public class Estimate extends JPanel {
         noteArea.setBackground(AppTheme.SURFACE);
         noteArea.setBorder(AppTheme.INPUT_BORDER);
 
-        addFormRow(form, 0, "Repair job ID", jobIdField);
+        JButton chooseJobButton = new JButton("Choose repair...");
+        chooseJobButton.setEnabled(context != null);
+        AppTheme.stylePrimaryButton(chooseJobButton);
+        chooseJobButton.addActionListener(event -> chooseRepairJob());
+        JButton loadButton = new JButton("Load latest");
+        AppTheme.styleSecondaryButton(loadButton);
+        loadButton.setEnabled(context != null);
+        loadButton.addActionListener(event -> loadLatestEstimate());
+
+        JPanel jobSelection = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        jobSelection.setOpaque(false);
+        jobSelection.add(jobIdField);
+        jobSelection.add(chooseJobButton);
+        jobSelection.add(loadButton);
+        jobSummaryLabel.setForeground(AppTheme.TEXT_SECONDARY);
+
+        addFormRow(form, 0, "Repair job", jobSelection);
         addFormRow(form, 1, "Version", versionField);
         addFormRow(form, 2, "Status", statusCombo);
         addFormRow(form, 3, "Note", new JScrollPane(noteArea));
+        GridBagConstraints summaryConstraints = new GridBagConstraints();
+        summaryConstraints.gridx = 2;
+        summaryConstraints.gridy = 0;
+        summaryConstraints.gridheight = 3;
+        summaryConstraints.weightx = 1;
+        summaryConstraints.weighty = 1;
+        summaryConstraints.fill = GridBagConstraints.BOTH;
+        summaryConstraints.anchor = GridBagConstraints.NORTHWEST;
+        summaryConstraints.insets = new Insets(8, 12, 8, 12);
+        form.add(jobSummaryLabel, summaryConstraints);
+        form.setPreferredSize(new Dimension(1000, 190));
         return form;
     }
 
     private JPanel createLineItemsPanel() {
         JPanel lineItems = new JPanel(new BorderLayout(8, 8));
-        lineItems.setBorder(BorderFactory.createTitledBorder("Estimate items"));
+        lineItems.setBorder(BorderFactory.createTitledBorder("Line items"));
 
-        JTable partsTable = new JTable(partsModel);
         AppTheme.styleTable(partsTable);
-        JTable laborTable = new JTable(laborModel);
         AppTheme.styleTable(laborTable);
 
         JButton addPartButton = new JButton("Add part");
@@ -122,24 +190,27 @@ public class Estimate extends JPanel {
         AppTheme.styleSecondaryButton(removeLaborButton);
         removeLaborButton.addActionListener(event -> removeSelectedRow(laborTable, laborModel));
 
-        JPanel partsPanel = createItemsPanel(partsTable, addPartButton, removePartButton);
-        JPanel laborPanel = createItemsPanel(laborTable, addLaborButton, removeLaborButton);
-
-        JTabbedPane itemTabs = new JTabbedPane();
-        itemTabs.addTab("Parts", partsPanel);
-        itemTabs.addTab("Labor", laborPanel);
-        lineItems.add(itemTabs, BorderLayout.CENTER);
+        JPanel partsPanel = createItemsPanel("Parts", partsTable, addPartButton, removePartButton);
+        JPanel laborPanel = createItemsPanel("Labor", laborTable, addLaborButton, removeLaborButton);
+        JSplitPane columns = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, partsPanel, laborPanel);
+        columns.setResizeWeight(0.5);
+        columns.setOneTouchExpandable(true);
+        lineItems.add(columns, BorderLayout.CENTER);
         return lineItems;
     }
 
-    private JPanel createItemsPanel(JTable table, JButton addButton, JButton removeButton) {
+    private JPanel createItemsPanel(String title, JTable table, JButton addButton, JButton removeButton) {
         JPanel panel = new JPanel(new BorderLayout(8, 8));
+        panel.setBorder(BorderFactory.createTitledBorder(title));
         panel.add(new JScrollPane(table), BorderLayout.CENTER);
 
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.LEFT));
         actions.add(addButton);
         actions.add(removeButton);
-        panel.add(actions, BorderLayout.SOUTH);
+        JPanel footer = new JPanel(new BorderLayout(4, 4));
+        footer.add(actions, BorderLayout.NORTH);
+        footer.add(table == partsTable ? partsInputValidation : laborInputValidation, BorderLayout.SOUTH);
+        panel.add(footer, BorderLayout.SOUTH);
         return panel;
     }
 
@@ -154,6 +225,17 @@ public class Estimate extends JPanel {
         JButton saveButton = new JButton("Save draft");
         AppTheme.stylePrimaryButton(saveButton);
         saveButton.addActionListener(event -> saveDraft());
+        AppTheme.stylePrimaryButton(approveButton);
+        AppTheme.styleSecondaryButton(rejectButton);
+        approveButton.setEnabled(false);
+        rejectButton.setEnabled(false);
+        approveButton.addActionListener(event -> updateEstimateStatus(true));
+        rejectButton.addActionListener(event -> updateEstimateStatus(false));
+
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        actions.add(saveButton);
+        actions.add(approveButton);
+        actions.add(rejectButton);
 
         JPanel summary = new JPanel(new BorderLayout(0, 4));
         summary.setOpaque(false);
@@ -161,12 +243,12 @@ public class Estimate extends JPanel {
         summary.add(validationLabel, BorderLayout.CENTER);
 
         footer.add(summary, BorderLayout.CENTER);
-        footer.add(saveButton, BorderLayout.EAST);
+        footer.add(actions, BorderLayout.EAST);
         return footer;
     }
 
-    private static DefaultTableModel createEditableModel(String[] columns) {
-        return new DefaultTableModel(columns, 0) {
+    private static RefreshableTableModel createEditableModel(String[] columns) {
+        return new RefreshableTableModel(columns, true) {
             @Override
             public boolean isCellEditable(int row, int column) {
                 return column != 3;
@@ -185,10 +267,85 @@ public class Estimate extends JPanel {
         GridBagConstraints fieldConstraints = new GridBagConstraints();
         fieldConstraints.gridx = 1;
         fieldConstraints.gridy = row;
-        fieldConstraints.weightx = 1;
+        fieldConstraints.weightx = 0.4;
         fieldConstraints.fill = GridBagConstraints.HORIZONTAL;
         fieldConstraints.insets = new Insets(8, 0, 8, 8);
         panel.add(component, fieldConstraints);
+    }
+
+    private void chooseRepairJob() {
+        if (context == null) {
+            return;
+        }
+        try {
+            List<RepairJob> jobs = context.repairJobRepository().findAll();
+            if (jobs.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "There are no repair jobs to select.");
+                return;
+            }
+            DefaultTableModel jobsModel = new DefaultTableModel(
+                    new String[] { "ID", "Device", "Customer", "Status", "Issue", "Received At" }, 0) {
+                @Override
+                public boolean isCellEditable(int row, int column) {
+                    return false;
+                }
+            };
+            for (RepairJob job : jobs) {
+                jobsModel.addRow(new Object[] {
+                        job.getId(), deviceName(job), job.getDevice().getCustomer().getFullName(),
+                        job.getStatus().getDisplayName(), job.getIssueDescription(), job.getCreatedAt()
+                });
+            }
+            JTable jobsTable = new JTable(jobsModel);
+            jobsTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+            AppTheme.styleTable(jobsTable);
+            JScrollPane scrollPane = new JScrollPane(jobsTable);
+            scrollPane.setPreferredSize(new Dimension(850, 360));
+            int choice = JOptionPane.showConfirmDialog(this, scrollPane, "Choose repair job",
+                    JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+            int selected = jobsTable.getSelectedRow();
+            if (choice == JOptionPane.OK_OPTION && selected >= 0) {
+                RepairJob job = jobs.get(jobsTable.convertRowIndexToModel(selected));
+                jobIdField.setText(Integer.toString(job.getId()));
+                jobSummaryLabel.setText("<html><b>" + escapeHtml(deviceName(job)) + "</b><br>"
+                        + escapeHtml(job.getDevice().getCustomer().getFullName()) + " · "
+                        + escapeHtml(job.getStatus().getDisplayName()) + "<br>"
+                        + escapeHtml(job.getIssueDescription()) + "</html>");
+                clearLoadedEstimate();
+            }
+        } catch (RuntimeException exception) {
+            showPersistenceError("Could not load repair jobs", exception);
+        }
+    }
+
+    private static JLabel validationLabel() {
+        JLabel label = new JLabel(" ");
+        label.setForeground(AppTheme.DANGER);
+        label.setFont(AppTheme.BODY);
+        return label;
+    }
+
+    private static String deviceName(RepairJob job) {
+        String brand = job.getDevice().getBrand() == null ? "" : job.getDevice().getBrand() + " ";
+        String model = job.getDevice().getModel() == null
+                ? job.getDevice().getDeviceType() : job.getDevice().getModel();
+        return (brand + model).trim();
+    }
+
+    private static String escapeHtml(String value) {
+        return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+    }
+
+    private void clearLoadedEstimate() {
+        activeEstimateId = 0;
+        versionField.setText("1");
+        statusCombo.setSelectedItem("DRAFT");
+        noteArea.setText("");
+        partsModel.replaceRows(List.of());
+        laborModel.replaceRows(List.of());
+        approveButton.setEnabled(false);
+        rejectButton.setEnabled(false);
+        updateTotal(null);
     }
 
     private static void removeSelectedRow(JTable table, DefaultTableModel model) {
@@ -204,9 +361,21 @@ public class Estimate extends JPanel {
         }
         calculatingTotal = true;
         try {
+            String partsError = validatePartsInput();
+            String laborError = validateLaborInput();
+            partsInputValidation.setText(partsError.isEmpty() ? " " : partsError);
+            laborInputValidation.setText(laborError.isEmpty() ? " " : laborError);
+            if (!partsError.isEmpty() || !laborError.isEmpty()) {
+                totalLabel.setText("Total estimate: —");
+                validationLabel.setText("Correct the highlighted line item fields.");
+                validationLabel.setForeground(AppTheme.DANGER);
+                return;
+            }
             BigDecimal total = calculatePartsTotal().add(calculateLaborTotal());
             totalLabel.setText("Total estimate: " + total.setScale(2, RoundingMode.HALF_UP));
-            validationLabel.setText("Prototype only - not connected to PostgreSQL.");
+            validationLabel.setText(context == null
+                    ? "Prototype mode - not connected to PostgreSQL."
+                    : "Ready to save to PostgreSQL.");
             validationLabel.setForeground(AppTheme.TEXT_SECONDARY);
         } catch (NumberFormatException | ArithmeticException exception) {
             totalLabel.setText("Total estimate: —");
@@ -232,6 +401,68 @@ public class Estimate extends JPanel {
         return total;
     }
 
+    private String validatePartsInput() {
+        BigDecimal maxUnitPrice = new BigDecimal("9999999999.99");
+        for (int row = 0; row < partsModel.getRowCount(); row++) {
+            String name = cellText(partsModel, row, 0);
+            if (name.isEmpty()) {
+                return "Row " + (row + 1) + ": enter a part name.";
+            }
+            BigDecimal price;
+            try {
+                price = new BigDecimal(cellText(partsModel, row, 1));
+            } catch (NumberFormatException exception) {
+                return "Row " + (row + 1) + ": unit price must be a number.";
+            }
+            if (price.signum() < 0 || price.compareTo(maxUnitPrice) > 0 || price.scale() > 2) {
+                return "Row " + (row + 1) + ": price must be 0–9,999,999,999.99 with at most 2 decimals.";
+            }
+            try {
+                if (Integer.parseInt(cellText(partsModel, row, 2)) <= 0) {
+                    return "Row " + (row + 1) + ": quantity must be greater than 0.";
+                }
+            } catch (NumberFormatException exception) {
+                return "Row " + (row + 1) + ": quantity must be a whole number greater than 0.";
+            }
+        }
+        return "";
+    }
+
+    private String validateLaborInput() {
+        BigDecimal maxHours = new BigDecimal("9999.99");
+        BigDecimal maxHourlyRate = new BigDecimal("9999999999.99");
+        for (int row = 0; row < laborModel.getRowCount(); row++) {
+            if (cellText(laborModel, row, 0).isEmpty()) {
+                return "Row " + (row + 1) + ": enter a labor description.";
+            }
+            BigDecimal hours;
+            try {
+                hours = new BigDecimal(cellText(laborModel, row, 1));
+            } catch (NumberFormatException exception) {
+                return "Row " + (row + 1) + ": hours must be a number.";
+            }
+            if (hours.signum() <= 0 || hours.compareTo(maxHours) > 0 || hours.scale() > 2) {
+                return "Row " + (row + 1) + ": hours must be greater than 0, at most 9,999.99, with 2 decimals.";
+            }
+            BigDecimal hourlyRate;
+            try {
+                hourlyRate = new BigDecimal(cellText(laborModel, row, 2));
+            } catch (NumberFormatException exception) {
+                return "Row " + (row + 1) + ": hourly rate must be a number.";
+            }
+            if (hourlyRate.signum() < 0 || hourlyRate.compareTo(maxHourlyRate) > 0
+                    || hourlyRate.scale() > 2) {
+                return "Row " + (row + 1) + ": rate must be 0–9,999,999,999.99 with at most 2 decimals.";
+            }
+        }
+        return "";
+    }
+
+    private static String cellText(DefaultTableModel model, int row, int column) {
+        Object value = model.getValueAt(row, column);
+        return value == null ? "" : value.toString().trim();
+    }
+
     private BigDecimal calculateLaborTotal() {
         BigDecimal total = BigDecimal.ZERO;
         for (int row = 0; row < laborModel.getRowCount(); row++) {
@@ -249,26 +480,156 @@ public class Estimate extends JPanel {
 
     private void saveDraft() {
         if (jobIdField.getText().trim().isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Enter a repair job ID.", "Missing information",
-                    JOptionPane.WARNING_MESSAGE);
-            jobIdField.requestFocusInWindow();
+            validationLabel.setText("Choose a repair job before saving.");
+            validationLabel.setForeground(AppTheme.DANGER);
             return;
         }
         try {
             Integer.parseInt(jobIdField.getText().trim());
-            Integer.parseInt(versionField.getText().trim());
-            calculatePartsTotal();
-            calculateLaborTotal();
+            finishTableEdit(partsTable);
+            finishTableEdit(laborTable);
             updateTotal(null);
-        } catch (NumberFormatException | ArithmeticException exception) {
-            JOptionPane.showMessageDialog(this, "Check the job ID, version, and line item values.",
-                    "Invalid estimate", JOptionPane.ERROR_MESSAGE);
+            if (!validatePartsInput().isEmpty() || !validateLaborInput().isEmpty()) {
+                validationLabel.setText("Correct the highlighted line item fields before saving.");
+                validationLabel.setForeground(AppTheme.DANGER);
+                return;
+            }
+            readParts();
+            readLaborServices();
+        } catch (RuntimeException exception) {
+            validationLabel.setText(exception.getMessage());
+            validationLabel.setForeground(AppTheme.DANGER);
             return;
         }
 
-        JOptionPane.showMessageDialog(this,
-                "The estimate is ready in the UI, but it is not saved to PostgreSQL yet.",
-                "Persistence not connected", JOptionPane.INFORMATION_MESSAGE);
+        if (context == null) {
+            JOptionPane.showMessageDialog(this,
+                    "The estimate is ready in the UI, but this panel is not connected to PostgreSQL.",
+                    "Persistence not connected", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        try {
+            int jobId = Integer.parseInt(jobIdField.getText().trim());
+            com.oop.project.model.Estimate saved = context.jobService().createEstimate(
+                    jobId, readParts(), readLaborServices(), noteArea.getText());
+            activeEstimateId = saved.getId();
+            versionField.setText(Integer.toString(saved.getVersion()));
+            statusCombo.setSelectedItem(saved.getStatus().name());
+            approveButton.setEnabled(true);
+            rejectButton.setEnabled(true);
+            validationLabel.setText("Saved estimate #" + saved.getId() + " to PostgreSQL.");
+            JOptionPane.showMessageDialog(this, "Estimate saved as version " + saved.getVersion() + ".");
+        } catch (RuntimeException exception) {
+            showPersistenceError("Could not save estimate", exception);
+        }
+    }
+
+    private List<Part> readParts() {
+        List<Part> parts = new ArrayList<>();
+        for (int row = 0; row < partsModel.getRowCount(); row++) {
+            String name = partsModel.getValueAt(row, 0).toString().trim();
+            if (name.isEmpty()) {
+                throw new IllegalArgumentException("Enter a name for every part row.");
+            }
+            parts.add(new Part(0,
+                    name,
+                    new BigDecimal(partsModel.getValueAt(row, 1).toString().trim()),
+                    Integer.parseInt(partsModel.getValueAt(row, 2).toString().trim())));
+        }
+        return parts;
+    }
+
+    private List<LaborService> readLaborServices() {
+        List<LaborService> laborServices = new ArrayList<>();
+        for (int row = 0; row < laborModel.getRowCount(); row++) {
+            String description = laborModel.getValueAt(row, 0).toString().trim();
+            if (description.isEmpty()) {
+                throw new IllegalArgumentException("Enter a description for every labor row.");
+            }
+            laborServices.add(new LaborService(0,
+                    description,
+                    new BigDecimal(laborModel.getValueAt(row, 1).toString().trim()),
+                    new BigDecimal(laborModel.getValueAt(row, 2).toString().trim())));
+        }
+        return laborServices;
+    }
+
+    private void loadLatestEstimate() {
+        if (context == null) {
+            JOptionPane.showMessageDialog(this, "Database mode is required to load estimates.");
+            return;
+        }
+        try {
+            int jobId = Integer.parseInt(jobIdField.getText().trim());
+            com.oop.project.model.Estimate estimate = context.estimateRepository()
+                    .findLatestByJobId(jobId)
+                    .orElseThrow(() -> new IllegalArgumentException("No estimate exists for this repair job."));
+            activeEstimateId = estimate.getId();
+            context.repairJobRepository().findById(jobId).ifPresent(job ->
+                    jobSummaryLabel.setText("<html><b>" + escapeHtml(deviceName(job)) + "</b><br>"
+                            + escapeHtml(job.getDevice().getCustomer().getFullName()) + " · "
+                            + escapeHtml(job.getStatus().getDisplayName()) + "<br>"
+                            + escapeHtml(job.getIssueDescription()) + "</html>"));
+            versionField.setText(Integer.toString(estimate.getVersion()));
+            statusCombo.setSelectedItem(estimate.getStatus().name());
+            noteArea.setText(estimate.getNote() == null ? "" : estimate.getNote());
+            List<Object[]> partRows = new ArrayList<>(estimate.getParts().size());
+            for (Part part : estimate.getParts()) {
+                partRows.add(new Object[] {
+                        part.getName(), part.getUnitPrice().toPlainString(), part.getQuantity(),
+                        part.getCost().setScale(2, RoundingMode.HALF_UP).toPlainString()
+                });
+            }
+            partsModel.replaceRows(partRows);
+            List<Object[]> laborRows = new ArrayList<>(estimate.getLaborServices().size());
+            for (LaborService labor : estimate.getLaborServices()) {
+                laborRows.add(new Object[] {
+                        labor.getDescription(), labor.getHours().toPlainString(),
+                        labor.getHourlyRate().toPlainString(),
+                        labor.getCost().setScale(2, RoundingMode.HALF_UP).toPlainString()
+                });
+            }
+            laborModel.replaceRows(laborRows);
+            boolean draft = estimate.isDraft();
+            approveButton.setEnabled(draft);
+            rejectButton.setEnabled(draft);
+            updateTotal(null);
+            validationLabel.setText("Loaded estimate #" + estimate.getId() + " from PostgreSQL.");
+        } catch (RuntimeException exception) {
+            showPersistenceError("Could not load estimate", exception);
+        }
+    }
+
+    private void updateEstimateStatus(boolean approve) {
+        if (context == null || activeEstimateId <= 0) {
+            return;
+        }
+        try {
+            if (approve) {
+                context.jobService().approveEstimate(activeEstimateId);
+            } else {
+                context.jobService().rejectEstimate(activeEstimateId, noteArea.getText());
+            }
+            statusCombo.setSelectedItem(approve ? "APPROVED" : "REJECTED");
+            approveButton.setEnabled(false);
+            rejectButton.setEnabled(false);
+            validationLabel.setText(approve ? "Estimate approved." : "Estimate rejected.");
+            afterEstimateStatusChange.run();
+        } catch (RuntimeException exception) {
+            showPersistenceError("Could not update estimate status", exception);
+        }
+    }
+
+    private void showPersistenceError(String title, RuntimeException exception) {
+        exception.printStackTrace();
+        JOptionPane.showMessageDialog(this, exception.getMessage(), title, JOptionPane.ERROR_MESSAGE);
+    }
+
+    private static void finishTableEdit(JTable table) {
+        if (table.isEditing() && !table.getCellEditor().stopCellEditing()) {
+            throw new IllegalArgumentException("Finish editing the current table cell before saving.");
+        }
     }
 
     public static void main(String[] args) {

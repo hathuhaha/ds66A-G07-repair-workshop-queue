@@ -16,6 +16,11 @@ public class WarrantyAdapter implements WarrantyResult {
     }
 
     @Override
+    public WarrantyStatus getWarrantyStatus() {
+        return record.getWarrantyStatus();
+    }
+
+    @Override
     public boolean isUnderWarranty() {
         return record.getWarrantyStatus() == WarrantyStatus.COVERED;
     }

@@ -19,6 +19,13 @@ public class StatusHistoryRepositoryImpl extends AbstractJdbcRepository
     }
 
     @Override
+    public List<StatusHistory> findAll() {
+        return queryList("Lấy toàn bộ lịch sử trạng thái",
+                SELECT + " ORDER BY h.changed_at ASC, h.id ASC",
+                NO_PARAMS, mapper);
+    }
+
+    @Override
     public List<StatusHistory> findByJobId(int jobId) {
         return queryList("Lấy lịch sử trạng thái",
                 SELECT + " WHERE h.job_id = ? ORDER BY h.changed_at ASC, h.id ASC",

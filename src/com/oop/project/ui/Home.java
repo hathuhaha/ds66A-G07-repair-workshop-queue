@@ -4,7 +4,6 @@ import javax.swing.*;
 import com.oop.project.config.AppContext;
 import com.oop.project.ui.theme.AppTheme;
 
-
 public class Home extends JFrame {
     static {
         AppTheme.setup();
@@ -18,19 +17,17 @@ public class Home extends JFrame {
         setTitle("G07 - Repair Workshop Queue");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
-        // Mỗi tab là một JPanel
-        JPanel customersPanel = new JPanel();
-        AppTheme.styleContentPanel(customersPanel);
-        JPanel queuePanel = new RepairQueue(context.repairJobRepository());
-        JPanel estimatePanel = new Estimate("test");
-        JPanel warrantyPanel = new Warranty("test");
-        JPanel historyPanel = new JobHistory("test");
-
-        // Thêm nội dung vào từng panel
-        customersPanel.add(new JLabel("Tên:"));
-        customersPanel.add(new JTextField(15));
-        JButton addButton = new JButton("Add");
-        customersPanel.add(addButton);
+        JobHistory historyPanel = new JobHistory(context.statusHistoryRepository());
+        RepairQueue queuePanel = new RepairQueue(context);
+        Warranty warrantyPanel = new Warranty(context.warrantyRepository());
+        Runnable refreshWorkflow = () -> {
+            queuePanel.refresh();
+            historyPanel.refresh();
+            warrantyPanel.refresh();
+        };
+        queuePanel.setAfterJobUpdate(refreshWorkflow);
+        JPanel customersPanel = new CustomerDevicePanel(context, refreshWorkflow);
+        JPanel estimatePanel = new Estimate(context, refreshWorkflow);
 
         JTabbedPane tabs = new JTabbedPane();
         tabs.addTab("Customers/Devices", customersPanel);
@@ -41,7 +38,6 @@ public class Home extends JFrame {
 
         add(tabs);
         AppTheme.applyTo(getContentPane());
-        AppTheme.stylePrimaryButton(addButton);
         pack();
         setMinimumSize(new java.awt.Dimension(900, 600));
         setResizable(true);

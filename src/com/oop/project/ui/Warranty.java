@@ -1,177 +1,537 @@
 package com.oop.project.ui;
 
-import javax.swing.*;
-import javax.swing.table.DefaultTableModel;
-import java.awt.*;
+import java.awt.BorderLayout;
+import java.awt.FlowLayout;
+import java.awt.GridLayout;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.List;
-import com.oop.project.ui.theme.AppTheme;
+import java.util.Locale;
+
+import javax.swing.BorderFactory;
+import javax.swing.JButton;
+import javax.swing.JFileChooser;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JSplitPane;
+import javax.swing.JTable;
+import javax.swing.JTextField;
+import javax.swing.RowFilter;
+import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableRowSorter;
+
+import com.oop.project.adapter.WarrantyFileImporter;
+import com.oop.project.adapter.WarrantyResult;
+import com.oop.project.model.LegacyWarrantyImport;
+import com.oop.project.model.WarrantyCandidate;
+import com.oop.project.model.WarrantyRecord;
+import com.oop.project.repository.WarrantyRepository;
+import com.oop.project.ui.helpers.RefreshableTableModel;
 import com.oop.project.ui.helpers.WrappedTableCellRenderer;
+import com.oop.project.ui.theme.AppTheme;
 
 public class Warranty extends JPanel {
-    private static String[] columnNames = { "Warranty ID", "Repair ID", "Device", "Customer", "Start Date",
-            "End Date" };
-    private DefaultTableModel tableModel;
-    private JPanel createWarranty, warrantyForm;
-    private List<Object[]> repairList; // RepairID, Device Name, Customer Name, Received Date, Fix Date
+    private static final String[] WARRANTY_COLUMNS = {
+            "Warranty ID", "Repair ID", "Device", "Customer", "Start Date", "End Date", "Status", "Source"
+    };
+    private static final String[] CANDIDATE_COLUMNS = {
+            "Repair ID", "Device ID", "Device", "Customer", "Received At", "Completed At"
+    };
+    private final WarrantyRepository repository;
+    private final RefreshableTableModel warrantyModel = new RefreshableTableModel(WARRANTY_COLUMNS, false);
+    private final RefreshableTableModel candidateModel = new RefreshableTableModel(CANDIDATE_COLUMNS, false);
+    private final JTable warrantyTable = new JTable(warrantyModel);
+    private final JTable candidateTable = new JTable(candidateModel);
+    private final TableRowSorter<DefaultTableModel> warrantySorter = new TableRowSorter<>(warrantyModel);
+    private final TableRowSorter<DefaultTableModel> candidateSorter = new TableRowSorter<>(candidateModel);
+    private final JTextField warrantySearchField = new JTextField(18);
+    private final JTextField repairSearchField = new JTextField(18);
+    private final JTextField repairIdField = new JTextField(10);
+    private final JTextField deviceNameField = new JTextField(18);
+    private final JTextField customerNameField = new JTextField(18);
+    private final JTextField startDateField = new JTextField(12);
+    private final JTextField endDateField = new JTextField(12);
+    private final JLabel startDateValidation = validationLabel();
+    private final JLabel endDateValidation = validationLabel();
+    private final JButton createWarrantyButton = new JButton("Create warranty");
+    private final JLabel totalCount = new JLabel("0");
+    private final JLabel validCount = new JLabel("0");
+    private final JLabel expiredCount = new JLabel("0");
+    private List<WarrantyRecord> warranties = List.of();
+    private List<WarrantyCandidate> candidates = List.of();
 
     public Warranty() {
-        this("Test");
+        this("");
     }
 
     public Warranty(String typeOfPanel) {
+        this.repository = null;
         AppTheme.setup();
-        this.repairList = new ArrayList<>();
-        if ("test".equals(typeOfPanel)) {
-
-            Object[][] data = {
-                    { 1, 101, "Dell Inspiron 15", "Nguyen Van An", "2026-01-15", "2027-01-15" },
-                    { 2, 102, "iPhone 15", "Tran Thi Binh", "2025-03-10", "2026-03-10" },
-                    { 3, 103, "Samsung Galaxy S24", "Le Van Cuong", "2026-06-01", "2027-06-01" },
-                    { 4, 104, "MacBook Air M3", "Pham Thi Dung", "2025-08-20", "2026-08-20" },
-                    { 5, 105, "ASUS Vivobook 16", "Hoang Van Giang", "2026-09-01", "2027-09-01" }
-            };
-            repairList.add(new Object[] { 201, "Dell Inspiron 15", "Nguyen Van An", "2026-01-15", "2027-01-15" });
-            repairList.add(new Object[] { 202, "iPhone 15", "Tran Thi Binh", "2025-03-10", "2026-03-10" });
-            repairList.add(new Object[] { 203, "Samsung Galaxy S24", "Le Van Cuong", "2026-06-01", "2027-06-01" });
-            tableModel = new DefaultTableModel(data, Warranty.columnNames);
-        } else {
-            tableModel = new DefaultTableModel(new Object[0][], Warranty.columnNames);
+        buildUi();
+        if ("test".equalsIgnoreCase(typeOfPanel)) {
+            addSampleRows();
         }
-        this.setLayout(new BorderLayout());
+    }
 
-        // create Dashboard
-        JPanel dashboard = new JPanel();
-        dashboard.setLayout(new FlowLayout(FlowLayout.CENTER));
+    public Warranty(WarrantyRepository repository) {
+        this.repository = repository;
+        AppTheme.setup();
+        buildUi();
+        refresh();
+    }
 
-        // create number of warranties
-        JPanel cntWarranties = new JPanel();
-        cntWarranties.setLayout(new BoxLayout(cntWarranties, BoxLayout.Y_AXIS));
+    private void buildUi() {
+        setLayout(new BorderLayout(12, 12));
+        setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
 
-        int wCount = tableModel.getRowCount();
-        JLabel lblWarranties = new JLabel("Total Warranties");
-        JLabel lblWarrantiesCount = new JLabel(String.valueOf(wCount));
-        lblWarranties.setFont(new Font("SansSerif", Font.PLAIN, 16));
-        lblWarrantiesCount.setFont(new Font("SansSerif", Font.BOLD, 24));
-        cntWarranties.add(lblWarranties);
-        cntWarranties.add(lblWarrantiesCount);
-        dashboard.add(cntWarranties);
+        JPanel dashboard = new JPanel(new FlowLayout(FlowLayout.LEFT, 30, 8));
+        dashboard.add(stat("Total warranties", totalCount));
+        dashboard.add(stat("Valid", validCount));
+        dashboard.add(stat("Expired", expiredCount));
+        add(dashboard, BorderLayout.NORTH);
 
-        // create number of expired warranties
+        warrantyTable.setRowSorter(warrantySorter);
+        candidateTable.setRowSorter(candidateSorter);
+        AppTheme.styleTable(warrantyTable);
+        AppTheme.styleTable(candidateTable);
+        WrappedTableCellRenderer.install(warrantyTable);
+        WrappedTableCellRenderer.install(candidateTable);
 
-        // create number of valid warranties
+        JPanel warrantyPanel = new JPanel(new BorderLayout(8, 8));
+        warrantyPanel.setBorder(BorderFactory.createTitledBorder("All warranties"));
+        JPanel warrantyFilter = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        warrantyFilter.add(new JLabel("Search:"));
+        warrantyFilter.add(warrantySearchField);
+        JButton searchButton = new JButton("Search");
+        JButton resetButton = new JButton("Reset");
+        JButton importButton = new JButton("Import legacy file");
+        warrantyFilter.add(searchButton);
+        warrantyFilter.add(resetButton);
+        warrantyFilter.add(importButton);
+        searchButton.addActionListener(event -> applyWarrantyFilter());
+        warrantySearchField.addActionListener(event -> applyWarrantyFilter());
+        resetButton.addActionListener(event -> {
+            warrantySearchField.setText("");
+            applyWarrantyFilter();
+        });
+        importButton.addActionListener(event -> importLegacyFile());
+        importButton.setEnabled(repository != null);
+        warrantyPanel.add(warrantyFilter, BorderLayout.NORTH);
+        warrantyPanel.add(new JScrollPane(warrantyTable), BorderLayout.CENTER);
 
-        // add to warranty panel
+        JPanel candidatesPanel = new JPanel(new BorderLayout(8, 8));
+        candidatesPanel.setBorder(BorderFactory.createTitledBorder("Repairs eligible for warranty"));
+        JPanel repairFilter = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        repairFilter.add(new JLabel("Search repair/device/customer:"));
+        repairFilter.add(repairSearchField);
+        JButton repairSearchButton = new JButton("Search");
+        JButton repairResetButton = new JButton("Reset");
+        repairFilter.add(repairSearchButton);
+        repairFilter.add(repairResetButton);
+        repairSearchButton.addActionListener(event -> applyCandidateFilter());
+        repairSearchField.addActionListener(event -> applyCandidateFilter());
+        repairResetButton.addActionListener(event -> {
+            repairSearchField.setText("");
+            applyCandidateFilter();
+        });
+        candidatesPanel.add(repairFilter, BorderLayout.NORTH);
 
-        this.add(dashboard, BorderLayout.NORTH);
+        makeSelectionField(repairIdField);
+        makeSelectionField(deviceNameField);
+        makeSelectionField(customerNameField);
+        addValidationListener(startDateField, this::validateWarrantyDates);
+        addValidationListener(endDateField, this::validateWarrantyDates);
+        JPanel repairDetails = new JPanel(new GridLayout(0, 2, 6, 6));
+        repairDetails.setBorder(BorderFactory.createTitledBorder("Create warranty"));
+        repairDetails.add(new JLabel("Repair ID:"));
+        repairDetails.add(repairIdField);
+        repairDetails.add(new JLabel("Device:"));
+        repairDetails.add(deviceNameField);
+        repairDetails.add(new JLabel("Customer:"));
+        repairDetails.add(customerNameField);
+        repairDetails.add(new JLabel("Start date (yyyy-MM-dd):"));
+        repairDetails.add(fieldWithValidation(startDateField, startDateValidation));
+        repairDetails.add(new JLabel("End date (yyyy-MM-dd):"));
+        repairDetails.add(fieldWithValidation(endDateField, endDateValidation));
+        JButton createButton = createWarrantyButton;
+        repairDetails.add(new JLabel());
+        repairDetails.add(createButton);
+        createButton.setEnabled(false);
+        createButton.addActionListener(event -> createForSelectedRepair());
 
-        // Create the warranty list and detail area.
-        this.createWarranty = new JPanel();
-        this.createWarranty.setLayout(new BorderLayout(12, 12));
-        this.createWarranty.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
+        JPanel rightPanel = new JPanel(new BorderLayout(8, 8));
+        rightPanel.setBorder(BorderFactory.createTitledBorder("Find a repair and create its warranty"));
+        rightPanel.add(new JScrollPane(candidateTable), BorderLayout.CENTER);
+        rightPanel.add(repairDetails, BorderLayout.SOUTH);
+        candidateTable.getSelectionModel().addListSelectionListener(event -> {
+            if (!event.getValueIsAdjusting()) {
+                showSelectedRepair();
+            }
+        });
 
-        JPanel filter = new JPanel(new GridLayout(0, 2, 8, 8));
-        filter.setBorder(BorderFactory.createTitledBorder("Search warranties"));
-        filter.add(new JLabel("Search:"));
-        filter.add(new JTextField(18));
-        filter.add(new JLabel("Customer Name:"));
-        filter.add(new JTextField(18));
-        filter.add(new JLabel("Device Name:"));
-        filter.add(new JTextField(18));
-        JButton filterIcon = new JButton("Search");
-        filter.add(new JLabel());
-        filter.add(filterIcon);
+        JSplitPane lists = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, warrantyPanel, rightPanel);
+        lists.setResizeWeight(0.5);
+        lists.setOneTouchExpandable(true);
+        add(lists, BorderLayout.CENTER);
+    }
 
-        String warrantyColumns[] = { "Repair ID", "Device Name", "Customer Name", "Received Date", "Completed At" };
-        DefaultTableModel model = new DefaultTableModel(repairList.toArray(new Object[0][]), warrantyColumns) {
+    private static void makeSelectionField(JTextField field) {
+        field.setEditable(false);
+    }
+
+    private static JPanel stat(String title, JLabel value) {
+        JPanel panel = new JPanel(new GridLayout(0, 1));
+        panel.add(new JLabel(title));
+        value.setFont(value.getFont().deriveFont(java.awt.Font.BOLD, 20f));
+        panel.add(value);
+        return panel;
+    }
+
+    private void addSampleRows() {
+        warrantyModel.addRow(new Object[] { 1, 101, "Dell Inspiron 15", "Nguyen Van An",
+                "2026-01-15", "2027-01-15", "VALID", "NATIVE" });
+        warrantyModel.addRow(new Object[] { 2, 102, "iPhone 15", "Tran Thi Binh",
+                "2025-03-10", "2026-03-10", "EXPIRED", "LEGACY" });
+        totalCount.setText("2");
+        validCount.setText("1");
+        expiredCount.setText("1");
+        candidateModel.addRow(new Object[] { 201, 1, "Dell Inspiron 15", "Nguyen Van An",
+                "2026-01-10", "2026-01-15" });
+        candidates = List.of(new WarrantyCandidate(201, 1, "Dell Inspiron 15", "Nguyen Van An",
+                LocalDate.now().atStartOfDay(), LocalDate.now().atStartOfDay()));
+    }
+
+    public void refresh() {
+        if (repository == null) {
+            return;
+        }
+        warranties = repository.findAll();
+        candidates = repository.findCandidates();
+
+        int valid = 0;
+        int expired = 0;
+        List<Object[]> warrantyRows = new ArrayList<>(warranties.size());
+        for (WarrantyRecord warranty : warranties) {
+            warrantyRows.add(new Object[] {
+                    warranty.getWarrantyId(), warranty.getRepairId(), warranty.getDeviceName(),
+                    warranty.getCustomerName(), warranty.getStartDate(), warranty.getEndDate(),
+                    warranty.getStatus(), warranty.getSource()
+            });
+            if ("VALID".equals(warranty.getStatus())) {
+                valid++;
+            } else {
+                expired++;
+            }
+        }
+        List<Object[]> candidateRows = new ArrayList<>(candidates.size());
+        for (WarrantyCandidate candidate : candidates) {
+            candidateRows.add(new Object[] {
+                    candidate.getRepairId(), candidate.getDeviceId(), candidate.getDeviceName(),
+                    candidate.getCustomerName(), candidate.getReceivedAt(), candidate.getCompletedAt()
+            });
+        }
+        candidateTable.clearSelection();
+        warrantyModel.replaceRows(warrantyRows);
+        candidateModel.replaceRows(candidateRows);
+        clearSelectedRepair();
+        totalCount.setText(Integer.toString(warranties.size()));
+        validCount.setText(Integer.toString(valid));
+        expiredCount.setText(Integer.toString(expired));
+        applyWarrantyFilter();
+    }
+
+    private void applyWarrantyFilter() {
+        String query = warrantySearchField.getText().trim();
+        warrantySorter.setRowFilter(query.isEmpty()
+                ? null
+                : RowFilter.regexFilter("(?iu)" + java.util.regex.Pattern.quote(query)));
+    }
+
+    private void applyCandidateFilter() {
+        String query = repairSearchField.getText().trim();
+        candidateSorter.setRowFilter(query.isEmpty()
+                ? null
+                : RowFilter.regexFilter("(?iu)" + java.util.regex.Pattern.quote(query)));
+        clearSelectedRepair();
+    }
+
+    private void showSelectedRepair() {
+        int selected = candidateTable.getSelectedRow();
+        if (selected < 0) {
+            clearSelectedRepair();
+            return;
+        }
+        int row = candidateTable.convertRowIndexToModel(selected);
+        if (row >= candidates.size()) {
+            clearSelectedRepair();
+            return;
+        }
+        WarrantyCandidate candidate = candidates.get(row);
+        repairIdField.setText(Integer.toString(candidate.getRepairId()));
+        deviceNameField.setText(candidate.getDeviceName());
+        customerNameField.setText(candidate.getCustomerName());
+        startDateField.setText("");
+        endDateField.setText("");
+        validateWarrantyDates();
+    }
+
+    private void clearSelectedRepair() {
+        candidateTable.clearSelection();
+        repairIdField.setText("");
+        deviceNameField.setText("");
+        customerNameField.setText("");
+        startDateField.setText("");
+        endDateField.setText("");
+        startDateValidation.setText(" ");
+        endDateValidation.setText(" ");
+        createWarrantyButton.setEnabled(false);
+    }
+
+    private void validateWarrantyDates() {
+        boolean selectedRepair = candidateTable.getSelectedRow() >= 0;
+        String startText = startDateField.getText().trim();
+        String endText = endDateField.getText().trim();
+        LocalDate start = parseDate(startText);
+        LocalDate end = parseDate(endText);
+
+        startDateValidation.setText(start == null
+                ? (startText.isEmpty() ? "Start date is required." : "Use yyyy-MM-dd.")
+                : " ");
+        endDateValidation.setText(end == null
+                ? (endText.isEmpty() ? "End date is required." : "Use yyyy-MM-dd.")
+                : " ");
+        if (start != null && end != null && end.isBefore(start)) {
+            endDateValidation.setText("End date must be on/after start date.");
+        }
+        createWarrantyButton.setEnabled(repository != null && selectedRepair
+                && start != null && end != null && !end.isBefore(start));
+    }
+
+    private static String validateImportRows(DefaultTableModel model, List<WarrantyResult> results) {
+        for (int row = 0; row < results.size(); row++) {
+            WarrantyResult result = results.get(row);
+            if (result.getWarrantyStatus() == com.oop.project.model.WarrantyStatus.NOT_COVERED) {
+                continue;
+            }
+            String startText = String.valueOf(model.getValueAt(row, 3)).trim();
+            String endText = String.valueOf(model.getValueAt(row, 4)).trim();
+            LocalDate start = parseDate(startText);
+            LocalDate end = parseDate(endText);
+            if (start == null) {
+                return "Row " + (row + 1) + ": enter a start date using yyyy-MM-dd.";
+            }
+            if (end == null) {
+                return "Row " + (row + 1) + ": enter an end date using yyyy-MM-dd.";
+            }
+            if (end.isBefore(start)) {
+                return "Row " + (row + 1) + ": end date must be on/after start date.";
+            }
+            if (result.isUnderWarranty() != !end.isBefore(LocalDate.now())) {
+                return "Row " + (row + 1) + ": end date conflicts with the legacy warranty status.";
+            }
+        }
+        return "";
+    }
+
+    private static LocalDate parseDate(String value) {
+        try {
+            return value == null || value.isBlank() ? null : LocalDate.parse(value);
+        } catch (java.time.format.DateTimeParseException exception) {
+            return null;
+        }
+    }
+
+    private void createForSelectedRepair() {
+        if (repository == null) {
+            showMessage("Database mode is required to create warranties.");
+            return;
+        }
+        if (candidateTable.getSelectedRow() < 0) {
+            showMessage("Select an eligible repair first.");
+            return;
+        }
+        validateWarrantyDates();
+        if (!createWarrantyButton.isEnabled()) {
+            return;
+        }
+        try {
+            LocalDate start = LocalDate.parse(startDateField.getText().trim());
+            LocalDate end = LocalDate.parse(endDateField.getText().trim());
+            int repairId = Integer.parseInt(repairIdField.getText().trim());
+            repository.createForRepair(repairId, start, end);
+            refresh();
+            showMessage("Warranty created.");
+        } catch (RuntimeException exception) {
+            showError("Could not create warranty", exception);
+        }
+    }
+
+    private void importLegacyFile() {
+        if (repository == null) {
+            showMessage("Database mode is required to import warranties.");
+            return;
+        }
+        JFileChooser chooser = new JFileChooser();
+        if (chooser.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+        Path file = chooser.getSelectedFile().toPath();
+        try {
+            List<WarrantyResult> results = new WarrantyFileImporter().importFromFile(file);
+            if (results.isEmpty()) {
+                showMessage("The selected file contains no warranty records.");
+                return;
+            }
+            importLegacyRows(file, results);
+        } catch (IOException | IllegalArgumentException exception) {
+            showError("Could not read legacy warranty file", exception);
+        }
+    }
+
+    private void importLegacyRows(Path file, List<WarrantyResult> results) throws IOException {
+        byte[] fileBytes = Files.readAllBytes(file);
+        String fileHash = sha256(fileBytes);
+        String[] columns = { "Device ID", "Legacy status", "Description", "Start date (yyyy-MM-dd)",
+                "End date (yyyy-MM-dd)" };
+        DefaultTableModel importModel = new DefaultTableModel(columns, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
-                return false;
+                return column >= 3;
             }
         };
-        JTable filteredTable = new JTable(model);
-        WrappedTableCellRenderer.install(filteredTable);
-        JScrollPane scrollPane = new JScrollPane(filteredTable);
-        this.createWarranty.add(filter, BorderLayout.NORTH);
-        this.createWarranty.add(scrollPane, BorderLayout.CENTER);
+        for (WarrantyResult result : results) {
+            importModel.addRow(new Object[] {
+                    result.getDeviceId(), result.getWarrantyStatus().name(),
+                    result.getDescription(), "", ""
+            });
+        }
+        JTable table = new JTable(importModel);
+        table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+        table.getColumnModel().getColumn(2).setPreferredWidth(240);
+        table.getColumnModel().getColumn(3).setPreferredWidth(150);
+        table.getColumnModel().getColumn(4).setPreferredWidth(150);
+        JScrollPane scroll = new JScrollPane(table);
+        scroll.setPreferredSize(new java.awt.Dimension(760, Math.min(360, 70 + results.size() * 24)));
+        JPanel content = new JPanel(new BorderLayout(8, 8));
+        JLabel importValidation = validationLabel();
+        importValidation.setText(validateImportRows(importModel, results));
+        content.add(new JLabel(
+                "Enter actual dates for COVERED/EXPIRED rows. NOT_COVERED rows are not saved."),
+                BorderLayout.NORTH);
+        content.add(scroll, BorderLayout.CENTER);
+        content.add(importValidation, BorderLayout.SOUTH);
+        importModel.addTableModelListener(event -> importValidation.setText(
+                validateImportRows(importModel, results)));
+        while (true) {
+            if (JOptionPane.showConfirmDialog(this, content, "Review legacy warranty import",
+                    JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE) != JOptionPane.OK_OPTION) {
+                return;
+            }
+            if (table.isEditing() && !table.getCellEditor().stopCellEditing()) {
+                importValidation.setText("Finish editing the current import date before continuing.");
+                continue;
+            }
+            String validation = validateImportRows(importModel, results);
+            importValidation.setText(validation);
+            if (!validation.isEmpty()) {
+                continue;
+            }
+            break;
+        }
 
-        createWarrantyForm();
-        this.createWarranty.add(this.warrantyForm, BorderLayout.EAST);
-        this.add(this.createWarranty, BorderLayout.CENTER);
+        List<LegacyWarrantyImport> imports = new ArrayList<>();
+        int notCoveredSkipped = 0;
+        for (int row = 0; row < importModel.getRowCount(); row++) {
+            WarrantyResult result = results.get(row);
+            if (result.getWarrantyStatus() == com.oop.project.model.WarrantyStatus.NOT_COVERED) {
+                notCoveredSkipped++;
+                continue;
+            }
+            LocalDate start = LocalDate.parse(String.valueOf(importModel.getValueAt(row, 3)).trim());
+            LocalDate end = LocalDate.parse(String.valueOf(importModel.getValueAt(row, 4)).trim());
+            imports.add(new LegacyWarrantyImport(
+                    result.getDeviceId(), start, end, fileHash + "-" + (row + 1), result.getDescription()));
+        }
 
+        try {
+            int importedCount = repository.importLegacy(imports);
+            refresh();
+            showMessage("Imported " + importedCount + " warranty record(s). "
+                    + (importedCount < imports.size()
+                            ? (imports.size() - importedCount) + " duplicate record(s) were skipped."
+                            : "")
+                    + (notCoveredSkipped > 0
+                            ? " " + notCoveredSkipped + " NOT_COVERED record(s) were not saved."
+                            : ""));
+        } catch (RuntimeException exception) {
+            showError("Could not import legacy warranties", exception);
+        }
     }
 
-    void createWarrantyForm() {
-        // create warranty form
-        Object[] chosenSample = {
-                102,
-                "Apple Iphone 13",
-                "Ha Thu Ha",
-                "18-7-2026",
-                "20-7-2026"
-        };
-        this.warrantyForm = new JPanel();
-        this.warrantyForm.setLayout(new GridBagLayout());
-        this.warrantyForm.setBorder(BorderFactory.createTitledBorder("Create Warranty"));
-        this.warrantyForm.setPreferredSize(new Dimension(340, 220));
+    private static String sha256(byte[] input) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(input));
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is not available.", exception);
+        }
+    }
 
-        JTextField repairIdField = new JTextField(String.valueOf(chosenSample[0]), 16);
-        repairIdField.setEditable(false);
-        JTextField deviceNameField = new JTextField(String.valueOf(chosenSample[1]), 16);
-        deviceNameField.setEditable(false);
-        JTextField customerNameField = new JTextField(String.valueOf(chosenSample[2]), 16);
-        customerNameField.setEditable(false);
+    private static JLabel validationLabel() {
+        JLabel label = new JLabel(" ");
+        label.setForeground(AppTheme.DANGER);
+        label.setFont(AppTheme.BODY);
+        return label;
+    }
 
-        addFormRow(0, "Repair ID:", repairIdField);
-        addFormRow(1, "Device Name:", deviceNameField);
-        addFormRow(2, "Customer Name:", customerNameField);
+    private static JPanel fieldWithValidation(JTextField field, JLabel validation) {
+        JPanel panel = new JPanel(new BorderLayout(0, 2));
+        panel.add(field, BorderLayout.CENTER);
+        panel.add(validation, BorderLayout.SOUTH);
+        return panel;
+    }
 
-        JButton createButton = new JButton("Create Warranty");
-        createButton.addActionListener(e -> {
-            deleteWarrantyForm();
-            createWarranty.revalidate();
-            createWarranty.repaint();
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Created New Warranty Successfully!\n");
+    private static void addValidationListener(JTextField field, Runnable validation) {
+        field.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            @Override
+            public void insertUpdate(javax.swing.event.DocumentEvent event) {
+                validation.run();
+            }
+
+            @Override
+            public void removeUpdate(javax.swing.event.DocumentEvent event) {
+                validation.run();
+            }
+
+            @Override
+            public void changedUpdate(javax.swing.event.DocumentEvent event) {
+                validation.run();
+            }
         });
-        GridBagConstraints buttonConstraints = new GridBagConstraints();
-        buttonConstraints.gridx = 0;
-        buttonConstraints.gridy = 3;
-        buttonConstraints.gridwidth = 2;
-        buttonConstraints.fill = GridBagConstraints.HORIZONTAL;
-        buttonConstraints.insets = new Insets(12, 8, 8, 8);
-        buttonConstraints.weightx = 1;
-        warrantyForm.add(createButton, buttonConstraints);
     }
 
-    private void addFormRow(int row, String labelText, JTextField field) {
-        GridBagConstraints labelConstraints = new GridBagConstraints();
-        labelConstraints.gridx = 0;
-        labelConstraints.gridy = row;
-        labelConstraints.anchor = GridBagConstraints.LINE_START;
-        labelConstraints.insets = new Insets(8, 8, 4, 8);
-        warrantyForm.add(new JLabel(labelText), labelConstraints);
-
-        GridBagConstraints fieldConstraints = new GridBagConstraints();
-        fieldConstraints.gridx = 1;
-        fieldConstraints.gridy = row;
-        fieldConstraints.fill = GridBagConstraints.HORIZONTAL;
-        fieldConstraints.weightx = 1;
-        fieldConstraints.insets = new Insets(8, 0, 4, 8);
-        warrantyForm.add(field, fieldConstraints);
+    private void showError(String title, Exception exception) {
+        exception.printStackTrace();
+        JOptionPane.showMessageDialog(this, exception.getMessage(), title, JOptionPane.ERROR_MESSAGE);
     }
 
-    private void deleteWarrantyForm() {
-        createWarranty.remove(this.warrantyForm);
+    private void showMessage(String message) {
+        JOptionPane.showMessageDialog(this, message);
     }
 
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            JFrame frame = new JFrame("Warranty Management");
-            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        javax.swing.SwingUtilities.invokeLater(() -> {
+            javax.swing.JFrame frame = new javax.swing.JFrame("Warranty Management");
+            frame.setDefaultCloseOperation(javax.swing.JFrame.EXIT_ON_CLOSE);
             frame.setContentPane(new Warranty());
-            frame.pack();
+            frame.setSize(1100, 700);
             frame.setLocationRelativeTo(null);
             frame.setVisible(true);
         });
