@@ -1,6 +1,5 @@
 package com.oop.project.service;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -15,6 +14,7 @@ import com.oop.project.repository.StatusHistoryRepository;
 
 import com.oop.project.model.Device;
 import com.oop.project.model.Estimate;
+import com.oop.project.model.EstimateStatus;
 import com.oop.project.model.LaborService;
 import com.oop.project.model.Part;
 import com.oop.project.model.RepairJob;
@@ -42,7 +42,7 @@ public class JobServiceImpl implements JobService {
 
     private Estimate findEstimateOrThrow(int estimatedId) {
         return estimateRepository.findById(estimatedId)
-                .orElseThrow(() -> new EntityNotFoundException("No quotation found with ID " + estimatedId));
+                .orElseThrow(() -> new EntityNotFoundException("No estimate found with ID " + estimatedId));
     }
 
     @Override
@@ -55,18 +55,7 @@ public class JobServiceImpl implements JobService {
     @Override
     public Estimate createEstimate(int jobId, List<Part> parts, List<LaborService> laborServices, String note) {
         findJobOrThrow(jobId);
-
-        int nextVersion;
-        Optional<Estimate> latest = estimateRepository.findLatestByJobId(jobId);
-        if (latest.isPresent()) {
-            nextVersion = latest.get().getVersion() + 1;
-        } else {
-            nextVersion = 1;
-        }
-
         Estimate estimate = new Estimate(jobId, note, parts, laborServices);
-        estimate.setVersion(nextVersion);
-
         return estimateRepository.save(estimate);
     }
 
@@ -74,29 +63,29 @@ public class JobServiceImpl implements JobService {
         JobStatus current = job.getStatus();
 
         if (!current.canTransitionTo(newStatus)) {
+            if (newStatus == JobStatus.CLOSED) {
+                throw new InvalidStatusTransitionException(
+                        "Only orders in READY status can be closed");
+            }
             throw new InvalidStatusTransitionException(
-                    "Cannot change status from " + current.name()
-                            + " to " + newStatus.name());
+                    "Cannot change status from " + current.name() + " to " + newStatus.name());
         }
 
         Optional<Estimate> latest = estimateRepository.findLatestByJobId(job.getId());
 
         if (newStatus == JobStatus.REPAIRING) {
             boolean approved = latest.map(Estimate::isApproved).orElse(false);
-
             if (!approved) {
                 throw new InvalidStatusTransitionException(
-                        "No quotation has been approved by the customer yet");
+                        "No estimate has been approved by the customer yet");
             }
         }
 
-        if (newStatus == JobStatus.CLOSED
-                && current == JobStatus.WAITING_FOR_APPROVAL) {
+        if (newStatus == JobStatus.CLOSED && current == JobStatus.WAITING_FOR_APPROVAL) {
             boolean rejected = latest.map(Estimate::isRejected).orElse(false);
-
             if (!rejected) {
                 throw new InvalidStatusTransitionException(
-                        "Order can only be closed after the customer has rejected the quotation");
+                        "Order can only be closed from WAITING_FOR_APPROVAL after the customer rejects the estimate");
             }
         }
     }
@@ -115,8 +104,7 @@ public class JobServiceImpl implements JobService {
 
         StatusHistory history = new StatusHistory(jobId, oldStatus, newStatus, note);
 
-        // TODO: chờ M2 cung cấp hàm lưu job + history trong một transaction
-        throw new UnsupportedOperationException("");
+        repairJobRepository.updateWithHistory(job, history);
     }
 
     @Override
@@ -126,10 +114,7 @@ public class JobServiceImpl implements JobService {
 
         RepairJob job = new RepairJob(device, issueDescription, desiredDays);
 
-        // TODO: chờ M2: lưu job + ghi history đầu tiên (oldStatus = null, newStatus =
-        // RECEIVED)
-        // trong một transaction, trả về job đã có id. M2 tự tạo history sau khi có id.
-        throw new UnsupportedOperationException("");
+        return repairJobRepository.saveWithInitialHistory(job, null);
     }
 
     @Override
@@ -140,15 +125,11 @@ public class JobServiceImpl implements JobService {
         checkIsLatestEstimate(estimate);
 
         if (!estimate.isDraft()) {
-            throw new InvalidStatusTransitionException("Only quotations with the **DRAFT** status can be approved");
+            throw new InvalidStatusTransitionException("Only estimates with the DRAFT status can be approved");
         }
 
         JobStatus oldStatus = job.getStatus();
 
-        // Kiểm tra luật chuyển trạng thái job sang REPAIRING.
-        // validateTransition đọc estimate mới nhất từ DB, lúc này vẫn là DRAFT nên sẽ
-        // báo lỗi.
-        // Vì vậy kiểm tra thủ công bằng canTransitionTo thay vì gọi validateTransition.
         if (!oldStatus.canTransitionTo(JobStatus.REPAIRING)) {
             throw new InvalidStatusTransitionException(
                     "Cannot change status from " + oldStatus.name() + " to " + JobStatus.REPAIRING.name());
@@ -156,11 +137,9 @@ public class JobServiceImpl implements JobService {
 
         job.setStatus(JobStatus.REPAIRING);
         StatusHistory history = new StatusHistory(job.getId(), oldStatus, JobStatus.REPAIRING,
-                "Customer approves the quotation");
+                "Customer approves the estimate");
 
-        // TODO: chờ M2: updateStatus estimate -> APPROVED + update job + ghi history,
-        // một transaction
-        throw new UnsupportedOperationException("");
+        estimateRepository.updateEstimateStatusAndJob(estimateId, EstimateStatus.APPROVED, job, history);
     }
 
     @Override
@@ -171,31 +150,29 @@ public class JobServiceImpl implements JobService {
         checkIsLatestEstimate(estimate);
 
         if (!estimate.isDraft()) {
-            throw new InvalidStatusTransitionException("Only quotations with the DRAFT status can be rejected");
+            throw new InvalidStatusTransitionException("Only estimates with the DRAFT status can be rejected");
         }
 
         JobStatus oldStatus = job.getStatus();
 
         if (!oldStatus.canTransitionTo(JobStatus.CLOSED) || oldStatus != JobStatus.WAITING_FOR_APPROVAL) {
             throw new InvalidStatusTransitionException(
-                    "Only orders with the WAITING_FOR_APPROVAL status can have their quotations rejected");
+                    "Only orders with the WAITING_FOR_APPROVAL status can have their estimates rejected");
         }
 
         job.setStatus(JobStatus.CLOSED);
         job.setClosedAt(LocalDateTime.now());
 
-        String historyNote = (note == null || note.isBlank()) ? "Customer rejects the quotation" : note;
+        String historyNote = (note == null || note.isBlank()) ? "Customer rejects the estimate" : note;
         StatusHistory history = new StatusHistory(job.getId(), oldStatus, JobStatus.CLOSED, historyNote);
 
-        // TODO: chờ M2: updateStatus estimate -> REJECTED + update job + ghi history,
-        // một transaction
-        throw new UnsupportedOperationException("");
+        estimateRepository.updateEstimateStatusAndJob(estimateId, EstimateStatus.REJECTED, job, history);
     }
 
     private void checkIsLatestEstimate(Estimate estimate) {
         Optional<Estimate> latest = estimateRepository.findLatestByJobId(estimate.getJobId());
         if (latest.isEmpty() || latest.get().getId() != estimate.getId()) {
-            throw new InvalidStatusTransitionException("Only the latest quotation for an order can be processed");
+            throw new InvalidStatusTransitionException("Only the latest estimate for an order can be processed");
         }
     }
 }
