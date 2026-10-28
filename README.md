@@ -157,3 +157,29 @@ Trước khi nộp, nhóm phải tự kiểm tra:
 - Repository là sản phẩm học tập chính thức của nhóm.  
 - Giảng viên sẽ đánh giá dựa trên code, lịch sử commit và khả năng giải thích khi bảo vệ project.  
 - Các vấn đề phát sinh do không đọc kỹ README sẽ không được giải quyết ngoại lệ.
+
+## Chạy ứng dụng (không dùng Maven)
+
+Ứng dụng dùng PostgreSQL. Tạo database `repair-workshop-queue`, sau đó chạy
+`database/schema.sql` và `database/seed_data.sql` theo thứ tự. **Hai script này
+xóa dữ liệu/bảng hiện có**, vì vậy chỉ chạy trên database phát triển hoặc database
+mới; không chạy trên database có dữ liệu cần giữ.
+
+Tạo file `.env` ở thư mục gốc:
+
+```text
+DB_URL=jdbc:postgresql://localhost:5432/repair-workshop-queue
+DB_USERNAME=your_postgresql_username
+DB_PASSWORD=your_postgresql_password
+```
+
+Đặt PostgreSQL JDBC driver trong `lib`, rồi biên dịch và chạy từ PowerShell:
+
+```powershell
+Get-ChildItem .\src -Recurse -Filter *.java |
+    ForEach-Object { $_.FullName } |
+    Set-Content -Encoding ASCII .\sources.txt
+
+javac -encoding UTF-8 -cp ".\lib\*" -d ".\out" "@sources.txt"
+java -cp ".\out;.\lib\*" com.oop.project.Main
+```

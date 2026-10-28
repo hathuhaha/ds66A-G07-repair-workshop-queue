@@ -1,7 +1,10 @@
+package com.oop.project;
+
+import com.oop.project.ui.Home;
 
 public class Main {
 
     public static void main(String[] args) {
-        System.out.println("Project started!");
+        Home.main(args);
     }
 }
