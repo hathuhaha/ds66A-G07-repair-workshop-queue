@@ -1,2 +1,17 @@
-7	Tablet	Charging port is loose	Pending	2024-06-07 15:40	Ethan Miller	111111111
 8	Desktop	No display output	In Progress	2024-06-08 10:25	Fiona Moore	666666666
+9	Smartwatch	Touchscreen is unresponsive	Completed	2024-06-09 11:55	George Taylor	777777777
+10	Laptop	Fan making loud noise	Pending	2024-06-10 09:15	Hannah Anderson	888888888
+11	Smartphone	Camera app keeps crashing	In Progress	2024-06-11 14:30	Isaac Thomas	999999999
+12	Printer	Paper jam	Completed	2024-06-12 16:05	Julia Jackson	121212121
+13	Tablet	Wi-Fi connection drops	Pending	2024-06-13 08:50	Kevin White	232323232
+14	Desktop	Random system shutdowns	In Progress	2024-06-14 12:35	Laura Harris	343434343
+15	Laptop	Hinge is damaged	Completed	2024-06-15 10:45	Michael Martin	454545454
+16	Smartphone	Speaker sound is distorted	Pending	2024-06-16 13:25	Nina Thompson	565656565
+17	Game Console	Controller will not connect	In Progress	2024-06-17 15:10	Oliver Garcia	676767676
+18	Laptop	Operating system will not boot	Pending	2024-06-18 09:35	Paula Martinez	787878787
+19	Monitor	Flickering display	Completed	2024-06-19 11:20	Quinn Robinson	898989898
+20	Smartphone	Power button is stuck	In Progress	2024-06-20 14:50	Ryan Clark	909090909
+21	Desktop	USB ports not working	Pending	2024-06-21 08:40	Sofia Lewis	101010101
+22	Tablet	Screen does not rotate	Completed	2024-06-22 16:15	Thomas Lee	212121212
+23	Laptop	Liquid damage inspection	In Progress	2024-06-23 10:05	Uma Walker	323232323
+24	Smartphone	Microphone not working	Pending	2024-06-24 12:00	Victor Hall	434343434
