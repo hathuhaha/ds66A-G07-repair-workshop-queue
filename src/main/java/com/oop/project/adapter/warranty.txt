@@ -1,0 +1,3 @@
+101|COVERED|Screen repair
+102|EXPIRED|Battery replacement
+103|NOT_COVERED|Water damage
